@@ -1,5 +1,5 @@
 # 01-SCHEMA
-Schema Version: 1.0.0
+Schema Version: 1.1.0
 
 ## ENUMs
 user_role: ADMIN | COORDINATOR | TECHNICIAN | STORE_STAFF
@@ -114,6 +114,13 @@ Indexes: (record_id), (changed_at)
 - ticket_materials: ADMIN+COORDINATOR+TECHNICIAN(assigned) INSERT. ADMIN DELETE.
 - audit_log: ADMIN SELECT only. No UPDATE. No DELETE. Ever.
 - services: ADMIN full CRUD. Others SELECT only.
+
+## Triggers
+### on_auth_user_created (on auth.users)
+- Auto-creates a `profiles` row whenever a new auth user signs up.
+- Defaults: `role = TECHNICIAN`, `is_active = true`, `skills = []`.
+- `full_name` = `raw_user_meta_data.full_name`, falling back to the user's email.
+- Backfills pre-existing users that lack a profile (see migration 002).
 
 ## Security Rules
 1. NEVER expose service_role key to client. Server Actions only.
