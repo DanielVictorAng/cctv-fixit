@@ -1,11 +1,12 @@
 # 01-SCHEMA
-Schema Version: 1.2.0
+Schema Version: 1.3.0
 
 ## ENUMs
 user_role: ADMIN | COORDINATOR | TECHNICIAN | STORE_STAFF
 ticket_status: NEW | QUOTED | SCHEDULED | DISPATCHED | IN_PROGRESS | COMPLETED | PAID | CLOSED | CANCELLED
 baguio_zone: ZONE_1_CENTER | ZONE_2_EAST | ZONE_3_WEST | ZONE_4_SOUTH | ZONE_5_NORTH | ZONE_6_PERIPHERAL
 payment_method: GCASH | CASH | BANK_TRANSFER | MAYA
+change_order_status: PENDING | APPROVED | REJECTED
 
 ## Tables
 
@@ -106,14 +107,31 @@ Do NOT store total_cost. Calculate: quantity_used × materials.sell_price at que
 
 Indexes: (record_id), (changed_at)
 
+### change_orders
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| ticket_id | uuid | FK→tickets, NOT NULL | |
+| requested_by | uuid | FK→profiles, NOT NULL | Technician who raised it |
+| new_description | text | NOT NULL | Added scope description |
+| additional_labour | numeric(10,2) | NOT NULL, default 0 | |
+| additional_materials | jsonb | NOT NULL, default [] | [{material_id, quantity, unit_cost}] |
+| status | change_order_status | NOT NULL, default PENDING | |
+| resolved_by | uuid | FK→profiles, nullable | |
+| resolved_at | timestamptz | nullable | |
+| created_at | timestamptz | auto | |
+
+Indexes: (ticket_id), (status)
+
 ## RLS Policies
-- profiles: SELF reads own. ADMIN reads all.
+- profiles: SELF reads own. ADMIN reads all. COORDINATOR reads TECHNICIAN profiles.
 - customers: ADMIN+COORDINATOR full CRUD. TECHNICIAN reads only assigned ticket customers.
-- tickets: ADMIN+COORDINATOR full CRUD. TECHNICIAN SELECT where assigned_tech_id=auth.uid(). TECHNICIAN UPDATE only: status, photo_urls, completed_at. STORE_STAFF SELECT where status IN (SCHEDULED, DISPATCHED).
+- tickets: ADMIN+COORDINATOR full CRUD. TECHNICIAN SELECT where assigned_tech_id=auth.uid(). TECHNICIAN UPDATE only: status, photo_urls, completed_at, change_order_pending. STORE_STAFF SELECT where status IN (SCHEDULED, DISPATCHED).
 - materials: All authenticated SELECT. ADMIN+STORE_STAFF UPDATE stock_qty.
-- ticket_materials: ADMIN+COORDINATOR+TECHNICIAN(assigned) INSERT. ADMIN DELETE.
+- ticket_materials: ADMIN+COORDINATOR SELECT + INSERT. TECHNICIAN(assigned) SELECT + INSERT. STORE_STAFF SELECT for SCHEDULED/DISPATCHED tickets. ADMIN DELETE.
 - audit_log: ADMIN SELECT only. No UPDATE. No DELETE. Ever.
 - services: ADMIN full CRUD. Others SELECT only.
+- change_orders: TECHNICIAN(assigned) SELECT + INSERT. COORDINATOR+ADMIN SELECT + UPDATE. ADMIN full.
 
 ## Triggers
 ### on_auth_user_created (on auth.users)
