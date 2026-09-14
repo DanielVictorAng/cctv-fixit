@@ -1,5 +1,5 @@
 # 01-SCHEMA
-Schema Version: 1.3.0
+Schema Version: 1.4.0
 
 ## ENUMs
 user_role: ADMIN | COORDINATOR | TECHNICIAN | STORE_STAFF
@@ -90,6 +90,8 @@ Indexes: (customer_id), (assigned_tech_id), (status), (scheduled_start), (zone)
 | ticket_id | uuid | FK→tickets, PK | |
 | material_id | uuid | FK→materials, PK | |
 | quantity_used | int | NOT NULL, default 1 | |
+| dispensed_at | timestamptz | nullable | Set when store dispenses the pick-list |
+| dispensed_by | uuid | FK→profiles, nullable | |
 
 Do NOT store total_cost. Calculate: quantity_used × materials.sell_price at query time.
 
@@ -128,7 +130,7 @@ Indexes: (ticket_id), (status)
 - customers: ADMIN+COORDINATOR full CRUD. TECHNICIAN reads only assigned ticket customers.
 - tickets: ADMIN+COORDINATOR full CRUD. TECHNICIAN SELECT where assigned_tech_id=auth.uid(). TECHNICIAN UPDATE only: status, photo_urls, completed_at, change_order_pending. STORE_STAFF SELECT where status IN (SCHEDULED, DISPATCHED).
 - materials: All authenticated SELECT. ADMIN+STORE_STAFF UPDATE stock_qty.
-- ticket_materials: ADMIN+COORDINATOR SELECT + INSERT. TECHNICIAN(assigned) SELECT + INSERT. STORE_STAFF SELECT for SCHEDULED/DISPATCHED tickets. ADMIN DELETE.
+- ticket_materials: ADMIN+COORDINATOR SELECT + INSERT. TECHNICIAN(assigned) SELECT + INSERT. STORE_STAFF SELECT for SCHEDULED/DISPATCHED tickets, UPDATE dispensed_at/dispensed_by only. ADMIN DELETE.
 - audit_log: ADMIN SELECT only. No UPDATE. No DELETE. Ever.
 - services: ADMIN full CRUD. Others SELECT only.
 - change_orders: TECHNICIAN(assigned) SELECT + INSERT. COORDINATOR+ADMIN SELECT + UPDATE. ADMIN full.

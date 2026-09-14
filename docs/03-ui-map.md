@@ -11,7 +11,8 @@ UI Version: 1.0.0
 | /coordinator/dispatch | COORDINATOR, ADMIN | Weekly dispatch calendar by zone |
 | /tech | TECHNICIAN | Today's jobs (PWA) |
 | /tech/jobs/[id] | TECHNICIAN | Job detail, photos, complete (PWA) |
-| /store | STORE_STAFF | Pick-lists, inventory |
+| /store | STORE_STAFF | Pick-lists + low-stock alerts |
+| /store/inventory | STORE_STAFF | Inventory list, stock levels |
 | /admin | ADMIN | Analytics, pricing config, audit log |
 
 ## Component Inventory (CHECK BEFORE CREATING NEW)
