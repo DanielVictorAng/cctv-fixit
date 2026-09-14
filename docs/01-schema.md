@@ -1,5 +1,5 @@
 # 01-SCHEMA
-Schema Version: 1.1.0
+Schema Version: 1.2.0
 
 ## ENUMs
 user_role: ADMIN | COORDINATOR | TECHNICIAN | STORE_STAFF
@@ -121,6 +121,11 @@ Indexes: (record_id), (changed_at)
 - Defaults: `role = TECHNICIAN`, `is_active = true`, `skills = []`.
 - `full_name` = `raw_user_meta_data.full_name`, falling back to the user's email.
 - Backfills pre-existing users that lack a profile (see migration 002).
+
+## Storage
+- Bucket `ticket-photos` (private). Holds ticket/job photos (see migration 003).
+- Uploads: max 5MB, image/jpeg|png|webp, via Server Action only (service role).
+- Reads: signed URLs (1 hour).
 
 ## Security Rules
 1. NEVER expose service_role key to client. Server Actions only.

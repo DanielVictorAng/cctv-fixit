@@ -29,7 +29,7 @@ UI Version: 1.0.0
 | Select | @/components/ui/select.tsx | native select props | Forms |
 | Textarea | @/components/ui/textarea.tsx | native textarea props | Forms |
 | Skeleton | @/components/ui/skeleton.tsx | className | Loading states |
-| EmptyState | @/components/coordinator/empty-state.tsx | title, message, action? | Empty screens |
+| EmptyState | @/components/ui/empty-state.tsx | title, message, action? | Empty screens |
 | KanbanBoard | @/components/coordinator/kanban-board.tsx | tickets, services, materials, techs | /coordinator |
 | TicketActions | @/components/coordinator/ticket-actions.tsx | ticketId, status, role, catalogs | Ticket detail |
 | TransitionDialog | @/components/tickets/transition-dialog.tsx | open, ticketId, targetStatus, catalogs | Kanban, detail |
@@ -38,6 +38,9 @@ UI Version: 1.0.0
 | CustomerFormDialog | @/components/customers/customer-form.tsx | open, customer | Customers |
 | CustomersView | @/components/customers/customers-view.tsx | customers | /coordinator/customers |
 | DispatchCalendar | @/components/coordinator/dispatch-calendar.tsx | jobs, days | /coordinator/dispatch |
+| PwaManager | @/components/pwa/pwa-manager.tsx | — | Tech layout |
+| JobActions | @/components/tech/job-actions.tsx | ticketId, status, photoUrls | Tech job detail |
+| DeepLinks | @/components/tech/deep-links.tsx | address | Tech job detail |
 
 New component? Add to this table immediately.
 
