@@ -8,6 +8,7 @@ UI Version: 1.0.0
 | /coordinator | COORDINATOR, ADMIN | Kanban board, dispatch overview |
 | /coordinator/tickets/[id] | COORDINATOR, ADMIN | Ticket detail, pricing, assignment |
 | /coordinator/customers | COORDINATOR, ADMIN | Customer list, create/edit |
+| /coordinator/dispatch | COORDINATOR, ADMIN | Weekly dispatch calendar by zone |
 | /tech | TECHNICIAN | Today's jobs (PWA) |
 | /tech/jobs/[id] | TECHNICIAN | Job detail, photos, complete (PWA) |
 | /store | STORE_STAFF | Pick-lists, inventory |
@@ -23,7 +24,20 @@ UI Version: 1.0.0
 | PhotoUploader | @/components/ui/photo-uploader.tsx | maxFiles:5, onUpload | Tech job |
 | JobCard | @/components/tech/job-card.tsx | ticket | Tech PWA |
 | PickList | @/components/store/pick-list.tsx | ticketId, materials[] | Store |
-| ConfirmDialog | @/components/ui/confirm-dialog.tsx | title, message, onConfirm | Destructive actions |
+| ConfirmDialog | @/components/ui/confirm-dialog.tsx | open, title, message, onConfirm | Destructive actions |
+| Dialog | @/components/ui/dialog.tsx | open, onClose, title, children | Modals (no radix) |
+| Select | @/components/ui/select.tsx | native select props | Forms |
+| Textarea | @/components/ui/textarea.tsx | native textarea props | Forms |
+| Skeleton | @/components/ui/skeleton.tsx | className | Loading states |
+| EmptyState | @/components/coordinator/empty-state.tsx | title, message, action? | Empty screens |
+| KanbanBoard | @/components/coordinator/kanban-board.tsx | tickets, services, materials, techs | /coordinator |
+| TicketActions | @/components/coordinator/ticket-actions.tsx | ticketId, status, role, catalogs | Ticket detail |
+| TransitionDialog | @/components/tickets/transition-dialog.tsx | open, ticketId, targetStatus, catalogs | Kanban, detail |
+| ScheduleForm/PaymentForm/CancelForm | @/components/tickets/transition-forms.tsx | ticketId, onDone | TransitionDialog |
+| NewTicketDialog | @/components/coordinator/new-ticket-dialog.tsx | customers | /coordinator |
+| CustomerFormDialog | @/components/customers/customer-form.tsx | open, customer | Customers |
+| CustomersView | @/components/customers/customers-view.tsx | customers | /coordinator/customers |
+| DispatchCalendar | @/components/coordinator/dispatch-calendar.tsx | jobs, days | /coordinator/dispatch |
 
 New component? Add to this table immediately.
 
