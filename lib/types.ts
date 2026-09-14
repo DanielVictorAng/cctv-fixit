@@ -232,21 +232,34 @@ export type Database = {
       }
       ticket_materials: {
         Row: {
+          dispensed_at: string | null
+          dispensed_by: string | null
           material_id: string
           quantity_used: number
           ticket_id: string
         }
         Insert: {
+          dispensed_at?: string | null
+          dispensed_by?: string | null
           material_id: string
           quantity_used?: number
           ticket_id: string
         }
         Update: {
+          dispensed_at?: string | null
+          dispensed_by?: string | null
           material_id?: string
           quantity_used?: number
           ticket_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ticket_materials_dispensed_by_fkey"
+            columns: ["dispensed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ticket_materials_material_id_fkey"
             columns: ["material_id"]
