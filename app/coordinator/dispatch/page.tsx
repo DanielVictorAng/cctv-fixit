@@ -1,7 +1,7 @@
 import { addDays, differenceInCalendarDays, endOfWeek, format, startOfWeek } from 'date-fns'
 
 import { createServerClient } from '@/lib/supabase-client'
-import { EmptyState } from '@/components/coordinator/empty-state'
+import { EmptyState } from '@/components/ui/empty-state'
 import { DispatchCalendar, type DispatchJob } from '@/components/coordinator/dispatch-calendar'
 
 export const dynamic = 'force-dynamic'

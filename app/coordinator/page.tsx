@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 
 import { createAdminClient, createServerClient } from '@/lib/supabase-client'
-import { EmptyState } from '@/components/coordinator/empty-state'
+import { EmptyState } from '@/components/ui/empty-state'
 import { KanbanBoard } from '@/components/coordinator/kanban-board'
 import { NewTicketDialog, type CustomerOption } from '@/components/coordinator/new-ticket-dialog'
 import type { KanbanTicket } from '@/components/tickets/ticket-card'
