@@ -55,6 +55,67 @@ export type Database = {
           },
         ]
       }
+      change_orders: {
+        Row: {
+          additional_labour: number
+          additional_materials: Json
+          created_at: string
+          id: string
+          new_description: string
+          requested_by: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["change_order_status"]
+          ticket_id: string
+        }
+        Insert: {
+          additional_labour?: number
+          additional_materials?: Json
+          created_at?: string
+          id?: string
+          new_description: string
+          requested_by: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["change_order_status"]
+          ticket_id: string
+        }
+        Update: {
+          additional_labour?: number
+          additional_materials?: Json
+          created_at?: string
+          id?: string
+          new_description?: string
+          requested_by?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["change_order_status"]
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "change_orders_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "change_orders_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "change_orders_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           created_at: string
@@ -326,6 +387,7 @@ export type Database = {
         | "ZONE_4_SOUTH"
         | "ZONE_5_NORTH"
         | "ZONE_6_PERIPHERAL"
+      change_order_status: "PENDING" | "APPROVED" | "REJECTED"
       payment_method: "GCASH" | "CASH" | "BANK_TRANSFER" | "MAYA"
       ticket_status:
         | "NEW"
@@ -473,6 +535,7 @@ export const Constants = {
         "ZONE_5_NORTH",
         "ZONE_6_PERIPHERAL",
       ],
+      change_order_status: ["PENDING", "APPROVED", "REJECTED"],
       payment_method: ["GCASH", "CASH", "BANK_TRANSFER", "MAYA"],
       ticket_status: [
         "NEW",

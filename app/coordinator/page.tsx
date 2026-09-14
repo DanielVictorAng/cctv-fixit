@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 
-import { createAdminClient, createServerClient } from '@/lib/supabase-client'
+import { createServerClient } from '@/lib/supabase-client'
 import { EmptyState } from '@/components/ui/empty-state'
 import { KanbanBoard } from '@/components/coordinator/kanban-board'
 import { NewTicketDialog, type CustomerOption } from '@/components/coordinator/new-ticket-dialog'
@@ -23,10 +23,7 @@ export default async function CoordinatorPage() {
     supabase.from('customers').select('id,full_name').order('full_name'),
   ])
 
-  // profiles RLS only allows self/admin reads, so the technician picker uses a
-  // server-side service-role read.
-  const admin = createAdminClient()
-  const { data: techRows } = await admin
+  const { data: techRows } = await supabase
     .from('profiles')
     .select('id,full_name')
     .eq('role', 'TECHNICIAN')

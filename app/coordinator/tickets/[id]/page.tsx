@@ -4,42 +4,55 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 
 import { getSessionContext } from '@/lib/auth'
-import { createAdminClient, createServerClient } from '@/lib/supabase-client'
+import { createServerClient } from '@/lib/supabase-client'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { TicketActions } from '@/components/coordinator/ticket-actions'
+import {
+  ChangeOrderReview,
+  type ChangeOrderView,
+} from '@/components/coordinator/change-order-review'
 import type { MaterialOption, ServiceOption } from '@/components/tickets/price-calculator'
 import type { TechOption } from '@/components/tickets/tech-assignment'
 
 export const dynamic = 'force-dynamic'
 
-export default async function TicketDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createServerClient()
   const { profile } = await getSessionContext()
   if (!profile) notFound()
 
-  const [ticketResult, servicesResult, materialsResult] = await Promise.all([
-    supabase.from('tickets').select('*, customers(*)').eq('id', id).single(),
-    supabase.from('services').select('id,name,base_labour_price').order('name'),
-    supabase.from('materials').select('id,name,cost_price').order('name'),
-  ])
+  const [ticketResult, servicesResult, materialsResult, techResult, changeOrdersResult] =
+    await Promise.all([
+      supabase.from('tickets').select('*, customers(*)').eq('id', id).single(),
+      supabase.from('services').select('id,name,base_labour_price').order('name'),
+      supabase.from('materials').select('id,name,cost_price').order('name'),
+      supabase
+        .from('profiles')
+        .select('id,full_name')
+        .eq('role', 'TECHNICIAN')
+        .eq('is_active', true)
+        .order('full_name'),
+      supabase
+        .from('change_orders')
+        .select('id,new_description,additional_labour,additional_materials,status,created_at')
+        .eq('ticket_id', id)
+        .order('created_at', { ascending: false }),
+    ])
 
   const ticket = ticketResult.data
   if (!ticket) notFound()
 
-  const admin = createAdminClient()
-  const { data: techRows } = await admin
-    .from('profiles')
-    .select('id,full_name')
-    .eq('role', 'TECHNICIAN')
-    .eq('is_active', true)
-    .order('full_name')
-
   const customer = ticket.customers
+  const materialCatalog = (materialsResult.data ?? []) as MaterialOption[]
+  const changeOrders: ChangeOrderView[] = (changeOrdersResult.data ?? []).map((order) => ({
+    id: order.id,
+    new_description: order.new_description,
+    additional_labour: Number(order.additional_labour),
+    additional_materials: order.additional_materials,
+    status: order.status,
+    created_label: format(new Date(order.created_at), 'MMM d, HH:mm'),
+  }))
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
@@ -105,6 +118,23 @@ export default async function TicketDetailPage({
         ) : null}
       </div>
 
+      {changeOrders.length > 0 ? (
+        <div className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <h2 className="mb-3 text-sm font-semibold">
+            Change orders
+            {ticket.change_order_pending ? (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                action needed
+              </span>
+            ) : null}
+          </h2>
+          <ChangeOrderReview
+            orders={changeOrders}
+            materials={materialCatalog.map((m) => ({ id: m.id, name: m.name }))}
+          />
+        </div>
+      ) : null}
+
       <div className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="mb-3 text-sm font-semibold">Actions</h2>
         <TicketActions
@@ -112,8 +142,8 @@ export default async function TicketDetailPage({
           status={ticket.status}
           role={profile.role}
           services={(servicesResult.data ?? []) as ServiceOption[]}
-          materials={(materialsResult.data ?? []) as MaterialOption[]}
-          techs={(techRows ?? []) as TechOption[]}
+          materials={materialCatalog}
+          techs={(techResult.data ?? []) as TechOption[]}
         />
       </div>
     </div>
