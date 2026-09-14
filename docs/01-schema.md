@@ -1,5 +1,5 @@
 # 01-SCHEMA
-Schema Version: 1.4.0
+Schema Version: 1.5.0
 
 ## ENUMs
 user_role: ADMIN | COORDINATOR | TECHNICIAN | STORE_STAFF
@@ -31,6 +31,7 @@ change_order_status: PENDING | APPROVED | REJECTED
 | default_address | text | nullable | |
 | zone | baguio_zone | nullable | |
 | created_at | timestamptz | auto | |
+| possible_duplicate | boolean | default false | Intake unsure — coordinator reviews |
 
 Indexes: (phone_number), (fb_messenger_id), (viber_id)
 
@@ -125,6 +126,23 @@ Indexes: (record_id), (changed_at)
 
 Indexes: (ticket_id), (status)
 
+### outbound_queue
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| channel | text | NOT NULL, CHECK messenger|viber | |
+| recipient_id | text | NOT NULL | Platform-scoped id |
+| body | text | NOT NULL | Rendered message |
+| ticket_id | uuid | FK→tickets, nullable | |
+| attempts | int | NOT NULL, default 0 | |
+| last_error | text | nullable | |
+| status | text | NOT NULL, default PENDING | PENDING|SENT|FAILED |
+| next_attempt_at | timestamptz | default now() | |
+| created_at | timestamptz | auto | |
+| sent_at | timestamptz | nullable | |
+
+Indexes: (status, next_attempt_at)
+
 ## RLS Policies
 - profiles: SELF reads own. ADMIN reads all. COORDINATOR reads TECHNICIAN profiles.
 - customers: ADMIN+COORDINATOR full CRUD. TECHNICIAN reads only assigned ticket customers.
@@ -134,6 +152,7 @@ Indexes: (ticket_id), (status)
 - audit_log: ADMIN SELECT only. No UPDATE. No DELETE. Ever.
 - services: ADMIN full CRUD. Others SELECT only.
 - change_orders: TECHNICIAN(assigned) SELECT + INSERT. COORDINATOR+ADMIN SELECT + UPDATE. ADMIN full.
+- outbound_queue: ADMIN SELECT only. Writes happen server-side via service role.
 
 ## Triggers
 ### on_auth_user_created (on auth.users)

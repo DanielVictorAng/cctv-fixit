@@ -14,6 +14,8 @@ UI Version: 1.0.0
 | /store | STORE_STAFF | Pick-lists + low-stock alerts |
 | /store/inventory | STORE_STAFF | Inventory list, stock levels |
 | /admin | ADMIN | Analytics, pricing config, audit log |
+| /api/webhooks/messenger | PUBLIC (n8n/Meta) | Messenger inbound + auto-reply |
+| /api/webhooks/viber | PUBLIC (n8n/Viber) | Viber inbound + auto-reply |
 
 ## Component Inventory (CHECK BEFORE CREATING NEW)
 | Name | Path | Props | Used By |
