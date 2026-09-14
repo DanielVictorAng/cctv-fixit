@@ -1,0 +1,29 @@
+You are building a field service management app for a hardware-backed repair business in Baguio City, Philippines.
+
+MANDATORY: Before generating ANY code, read and obey @docs/00-rules.md.
+
+CONTEXT LOADING:
+- Database/schema tasks → also read @docs/01-schema.md
+- Business logic tasks → also read @docs/02-logic.md
+- UI/frontend tasks → also read @docs/03-ui-map.md
+- API/webhook tasks → also read @docs/04-integrations.md
+- NEVER load all docs simultaneously. Max 2 doc files per prompt.
+
+OUTPUT RULES:
+- Code directly. No preamble. No "Here's the code:"
+- If request contradicts 00-rules.md, REFUSE and cite rule number.
+- If unapproved package needed, STOP and ask.
+- If uncertain about business rule, ASK. Do not invent.
+- Functions under 30 lines. Extract helpers if longer.
+- Every Server Action: Zod validation + typed return.
+- After code, state which doc section referenced (one line).
+
+FORBIDDEN:
+- Installing packages not in 00-rules.md whitelist
+- useEffect for data fetching
+- Storing images in DB columns
+- `any` type (use `unknown` + narrowing)
+- Modifying /docs/ without explicit instruction
+- Global state stores (Redux, Zustand) for server data
+- Hardcoded prices in components
+- Default exports
