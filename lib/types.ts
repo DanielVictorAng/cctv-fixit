@@ -124,6 +124,7 @@ export type Database = {
           full_name: string
           id: string
           phone_number: string | null
+          possible_duplicate: boolean
           viber_id: string | null
           zone: Database["public"]["Enums"]["baguio_zone"] | null
         }
@@ -134,6 +135,7 @@ export type Database = {
           full_name: string
           id?: string
           phone_number?: string | null
+          possible_duplicate?: boolean
           viber_id?: string | null
           zone?: Database["public"]["Enums"]["baguio_zone"] | null
         }
@@ -144,6 +146,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone_number?: string | null
+          possible_duplicate?: boolean
           viber_id?: string | null
           zone?: Database["public"]["Enums"]["baguio_zone"] | null
         }
@@ -178,6 +181,56 @@ export type Database = {
           stock_qty?: number
         }
         Relationships: []
+      }
+      outbound_queue: {
+        Row: {
+          attempts: number
+          body: string
+          channel: string
+          created_at: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          recipient_id: string
+          sent_at: string | null
+          status: string
+          ticket_id: string | null
+        }
+        Insert: {
+          attempts?: number
+          body: string
+          channel: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          recipient_id: string
+          sent_at?: string | null
+          status?: string
+          ticket_id?: string | null
+        }
+        Update: {
+          attempts?: number
+          body?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          recipient_id?: string
+          sent_at?: string | null
+          status?: string
+          ticket_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_queue_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

@@ -1,0 +1,21 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_HOST: 0.0.0.0
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      N8N_SECURE_COOKIE: "false"
+      GENERIC_TIMEZONE: Asia/Manila
+      # Shared secret forwarded to Next.js as the x-n8n-secret header.
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET}
+      # Where the Next.js app is reachable from inside the container.
+      NEXT_APP_URL: ${NEXT_APP_URL}
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:
