@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { hasRole, requireSession, type UserRole } from '@/lib/auth'
 import { writeAuditLog } from '@/lib/audit'
 import type { ActionResult } from '@/lib/action-result'
-import type { Json } from '@/lib/types'
+import type { DBClient } from '@/lib/supabase-client'
 
 const STORE_ROLES: UserRole[] = ['ADMIN', 'STORE_STAFF']
 
@@ -13,9 +13,25 @@ const dispenseSchema = z.object({ ticket_id: z.uuid() })
 
 export type DispenseInput = z.infer<typeof dispenseSchema>
 
+/** What is still to hand over on a ticket, for the audit trail. */
+async function undispensedLines(supabase: DBClient, ticketId: string) {
+  const { data } = await supabase
+    .from('ticket_materials')
+    .select('material_id,quantity_used,dispensed_qty')
+    .eq('ticket_id', ticketId)
+  return (data ?? [])
+    .filter((line) => line.quantity_used > line.dispensed_qty)
+    .map((line) => ({
+      material_id: line.material_id,
+      quantity: line.quantity_used - line.dispensed_qty,
+    }))
+}
+
 /**
- * [DISPENSED] — decrement stock for every un-dispensed line on a ticket and
- * mark those lines dispensed. docs/02-logic.md §Hardware Store Sync.
+ * [DISPENSED] — hand over everything still to dispense on a ticket's pick-list
+ * (docs/02-logic.md §Hardware Store Sync). dispense_ticket_materials() takes the
+ * stock and marks the lines as one transaction, so a double tap or a short stock
+ * changes nothing (docs/01-schema.md §Functions).
  */
 export async function dispenseTicketMaterials(
   input: DispenseInput
@@ -30,62 +46,26 @@ export async function dispenseTicketMaterials(
     return { success: false, error: 'Only store staff can dispense materials.' }
   }
 
-  const { data: lineRows } = await supabase
-    .from('ticket_materials')
-    .select('ticket_id,material_id,quantity_used,dispensed_at')
-    .eq('ticket_id', parsed.data.ticket_id)
-
-  const pending = (lineRows ?? []).filter((line) => line.dispensed_at === null)
-  if (pending.length === 0) {
-    return { success: false, error: 'This pick-list is already dispensed.' }
-  }
-
-  const materialIds = pending.map((line) => line.material_id)
-  const { data: materialRows } = await supabase
-    .from('materials')
-    .select('id,stock_qty')
-    .in('id', materialIds)
-  const stockById = new Map((materialRows ?? []).map((m) => [m.id, m.stock_qty]))
-
-  const insufficient = pending.filter(
-    (line) => (stockById.get(line.material_id) ?? 0) < line.quantity_used
-  )
-  if (insufficient.length > 0) {
-    return {
-      success: false,
-      error: `Insufficient stock for ${insufficient.length} item(s) — coordinator notified.`,
+  const ticketId = parsed.data.ticket_id
+  const pending = await undispensedLines(supabase, ticketId)
+  const { data: dispensed, error } = await supabase.rpc('dispense_ticket_materials', {
+    p_ticket_id: ticketId,
+  })
+  if (error) {
+    // The function names the material, e.g. "Not enough stock for PVC elbow".
+    if (error.hint === 'insufficient_stock') {
+      return { success: false, error: `${error.message}. Nothing was taken — tell the coordinator.` }
     }
+    return { success: false, error: 'Could not update the stock. Please try again.' }
   }
-
-  const now = new Date().toISOString()
-  for (const line of pending) {
-    const current = stockById.get(line.material_id) ?? 0
-    const { error: stockError } = await supabase
-      .from('materials')
-      .update({ stock_qty: current - line.quantity_used })
-      .eq('id', line.material_id)
-    if (stockError) return { success: false, error: 'Could not update stock.' }
-
-    const { error: lineError } = await supabase
-      .from('ticket_materials')
-      .update({ dispensed_at: now, dispensed_by: userId })
-      .eq('ticket_id', line.ticket_id)
-      .eq('material_id', line.material_id)
-    if (lineError) return { success: false, error: 'Could not mark the pick-list dispensed.' }
-  }
+  if (!dispensed) return { success: false, error: 'This pick-list is already dispensed.' }
 
   await writeAuditLog({
     tableName: 'ticket_materials',
-    recordId: parsed.data.ticket_id,
+    recordId: ticketId,
     action: 'UPDATE',
     changedBy: userId,
-    newValues: {
-      dispensed: pending.map((line) => ({
-        material_id: line.material_id,
-        quantity: line.quantity_used,
-      })),
-    } as unknown as Json,
+    newValues: { dispensed: pending },
   })
-
-  return { success: true, data: { dispensed: pending.length } }
+  return { success: true, data: { dispensed } }
 }

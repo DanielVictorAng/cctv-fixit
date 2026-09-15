@@ -6,11 +6,18 @@ import { PickList, type PickListItem } from '@/components/store/pick-list'
 
 export const dynamic = 'force-dynamic'
 
+type PickTicket = { status: string; scheduled_start: string | null }
+
+function pickListLabel(ticket: PickTicket): string | null {
+  if (ticket.status === 'IN_PROGRESS') return 'Job in progress — extra materials'
+  return ticket.scheduled_start ? formatShopTime(ticket.scheduled_start, 'HH:mm') : null
+}
+
 export default async function StorePage() {
   const supabase = await createServerClient()
   const { start, end } = shopDayRange()
 
-  const [ticketsResult, materialsResult] = await Promise.all([
+  const [scheduledResult, inProgressResult, materialsResult] = await Promise.all([
     supabase
       .from('tickets')
       .select('id,status,service_category,scheduled_start,customers(full_name)')
@@ -18,10 +25,18 @@ export default async function StorePage() {
       .gte('scheduled_start', start.toISOString())
       .lt('scheduled_start', end.toISOString())
       .order('scheduled_start'),
+    // A job already under way only shows while an approved change order still
+    // has materials to hand over.
+    supabase
+      .from('tickets')
+      .select('id,status,service_category,scheduled_start,customers(full_name)')
+      .eq('status', 'IN_PROGRESS')
+      .order('scheduled_start'),
     supabase.from('materials').select('id,name,stock_qty').order('name'),
   ])
 
-  const tickets = ticketsResult.data ?? []
+  const scheduled = scheduledResult.data ?? []
+  const inProgress = inProgressResult.data ?? []
   const materials = materialsResult.data ?? []
   const stockById = new Map(materials.map((material) => [material.id, material.stock_qty]))
   const lowStock = materials.filter((material) => material.stock_qty <= LOW_STOCK_THRESHOLD)
@@ -30,20 +45,22 @@ export default async function StorePage() {
     ticket_id: string
     material_id: string
     quantity_used: number
-    dispensed_at: string | null
+    dispensed_qty: number
     materials: { name: string } | null
   }[] = []
 
-  if (tickets.length > 0) {
+  const ticketIds = [...scheduled, ...inProgress].map((ticket) => ticket.id)
+  if (ticketIds.length > 0) {
     const { data } = await supabase
       .from('ticket_materials')
-      .select('ticket_id,material_id,quantity_used,dispensed_at,materials(name)')
-      .in(
-        'ticket_id',
-        tickets.map((ticket) => ticket.id)
-      )
+      .select('ticket_id,material_id,quantity_used,dispensed_qty,materials(name)')
+      .in('ticket_id', ticketIds)
     lines = data ?? []
   }
+
+  const hasMaterialsToHandOver = (ticketId: string) =>
+    lines.some((line) => line.ticket_id === ticketId && line.quantity_used > line.dispensed_qty)
+  const tickets = [...scheduled, ...inProgress.filter((ticket) => hasMaterialsToHandOver(ticket.id))]
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 px-4 py-5">
@@ -69,7 +86,7 @@ export default async function StorePage() {
                 material_id: line.material_id,
                 name: line.materials?.name ?? 'Material',
                 quantity_used: line.quantity_used,
-                dispensed: line.dispensed_at !== null,
+                remaining: Math.max(0, line.quantity_used - line.dispensed_qty),
                 stock_qty: stockById.get(line.material_id) ?? 0,
               }))
             return (
@@ -77,9 +94,7 @@ export default async function StorePage() {
                 key={ticket.id}
                 ticketId={ticket.id}
                 customerName={ticket.customers?.full_name ?? null}
-                scheduledLabel={
-                  ticket.scheduled_start ? formatShopTime(ticket.scheduled_start, 'HH:mm') : null
-                }
+                scheduledLabel={pickListLabel(ticket)}
                 items={items}
               />
             )

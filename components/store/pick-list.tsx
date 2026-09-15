@@ -12,8 +12,17 @@ export type PickListItem = {
   material_id: string
   name: string
   quantity_used: number
-  dispensed: boolean
+  /** Units still to hand over; 0 once the line is fully dispensed. */
+  remaining: number
   stock_qty: number
+}
+
+function quantityLabel(item: PickListItem): string {
+  const partlyDispensed = item.remaining > 0 && item.remaining < item.quantity_used
+  const quantity = partlyDispensed
+    ? `${item.remaining} more (of ${item.quantity_used})`
+    : `× ${item.quantity_used}`
+  return `${quantity} (stock ${item.stock_qty})`
 }
 
 export function PickList({
@@ -29,7 +38,8 @@ export function PickList({
 }) {
   const router = useRouter()
   const [pending, setPending] = useState(false)
-  const allDispensed = items.length > 0 && items.every((item) => item.dispensed)
+  const toDispense = items.some((item) => item.remaining > 0)
+  const allDispensed = items.length > 0 && !toDispense
 
   async function dispense() {
     setPending(true)
@@ -53,16 +63,17 @@ export function PickList({
           <p className="text-base font-semibold">{customerName ?? 'Unknown customer'}</p>
           {scheduledLabel ? <p className="text-base text-zinc-500">{scheduledLabel}</p> : null}
         </div>
-        {allDispensed ? (
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-base text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-            Dispensed
-          </span>
-        ) : (
+        {toDispense ? (
           <Button className="h-12 text-base" onClick={dispense} disabled={pending}>
             <PackageCheck className="h-5 w-5" />
             {pending ? 'Updating…' : 'DISPENSED'}
           </Button>
-        )}
+        ) : null}
+        {allDispensed ? (
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-base text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+            Dispensed
+          </span>
+        ) : null}
       </div>
 
       {items.length === 0 ? (
@@ -71,13 +82,15 @@ export function PickList({
         <ul className="mt-3 space-y-2 text-base">
           {items.map((item) => (
             <li key={item.material_id} className="flex items-center justify-between gap-3">
-              <span className={item.dispensed ? 'text-zinc-400 line-through' : ''}>{item.name}</span>
+              <span className={item.remaining === 0 ? 'text-zinc-400 line-through' : ''}>
+                {item.name}
+              </span>
               <span
                 className={
-                  item.quantity_used > item.stock_qty ? 'font-medium text-red-600' : 'text-zinc-500'
+                  item.remaining > item.stock_qty ? 'font-medium text-red-600' : 'text-zinc-500'
                 }
               >
-                × {item.quantity_used} (stock {item.stock_qty})
+                {quantityLabel(item)}
               </span>
             </li>
           ))}
