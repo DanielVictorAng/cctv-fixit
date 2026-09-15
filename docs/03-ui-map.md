@@ -46,6 +46,7 @@ UI Version: 1.0.0
 | DeepLinks | @/components/tech/deep-links.tsx | address | Tech job detail |
 | ChangeOrderForm | @/components/tech/change-order-form.tsx | ticketId, materials, onDone | Tech job detail |
 | ChangeOrderReview | @/components/coordinator/change-order-review.tsx | orders, materials | Ticket detail |
+| ServicesPanel | @/components/admin/services-panel.tsx | services | /admin |
 
 New component? Add to this table immediately.
 
