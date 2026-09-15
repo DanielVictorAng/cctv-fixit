@@ -152,6 +152,27 @@ export type Database = {
         }
         Relationships: []
       }
+      inbound_events: {
+        Row: {
+          channel: string
+          id: string
+          message_id: string
+          received_at: string
+        }
+        Insert: {
+          channel: string
+          id?: string
+          message_id: string
+          received_at?: string
+        }
+        Update: {
+          channel?: string
+          id?: string
+          message_id?: string
+          received_at?: string
+        }
+        Relationships: []
+      }
       materials: {
         Row: {
           category: string | null
