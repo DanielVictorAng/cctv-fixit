@@ -1,52 +1,47 @@
 # n8n (self-hosted)
 
-Inbound flow (docs/04-integrations.md):
+**Phase 6.1** — the automation container. n8n **Community Edition**: free, no subscription.
+(n8n *Cloud* is the paid product — not used here.)
 
-```
-Meta / Viber ──▶ n8n (public webhook, parse + route) ──▶ Next.js /api/webhooks/* ──▶ Supabase
-```
+Two ways to run it. Pick one.
 
-## Run
+## Option A — Docker (recommended for an always-on VPS)
 
 ```bash
 cd n8n
-N8N_WEBHOOK_SECRET=change-me NEXT_APP_URL=http://host.docker.internal:3000 docker compose up -d
+cp env.example .env        # set N8N_WEBHOOK_SECRET + NEXT_APP_URL
+docker compose up -d
+docker compose logs -f n8n
 ```
 
-## Next.js env
+n8n is then at <http://localhost:5678>.
 
-Set these in the app's `.env.local`:
+## Option B — no Docker (quickest locally, still free)
 
-| Var | Purpose |
-|-----|---------|
-| `N8N_WEBHOOK_SECRET` | Shared secret; n8n sends it as `x-n8n-secret` |
-| `MESSENGER_VERIFY_TOKEN` | Meta webhook verification token (GET `hub.challenge`) |
-| `MESSENGER_APP_SECRET` | Verifies `x-hub-signature-256` |
-| `MESSENGER_PAGE_ACCESS_TOKEN` | Outbound Messenger sends |
-| `VIBER_AUTH_TOKEN` | Viber outbound + `x-viber-content-signature` |
+Requires Node 20+. From the repo root:
 
-## Workflow shape
-
-For each channel, add a **Webhook** node (public) that forwards to Next.js:
-
-- Messenger: `POST ${NEXT_APP_URL}/api/webhooks/messenger`
-- Viber: `POST ${NEXT_APP_URL}/api/webhooks/viber`
-
-Include the header `x-n8n-secret: ${N8N_WEBHOOK_SECRET}`. Next.js accepts **either** that
-header **or** a valid platform signature, so the endpoint also works if exposed directly
-to Meta/Viber.
-
-The sanitised JSON body Next.js accepts is:
-
-```json
-{
-  "sender_id": "1234567890",
-  "text": "My faucet is leaking",
-  "phone_number": "+639171234567",
-  "category": "Plumbing",
-  "attachments": []
-}
+```bash
+npx n8n start
 ```
 
-> Note: this build performs duplicate prevention in Next.js (it owns the database),
-> rather than in n8n. n8n is responsible for receiving, parsing, and routing.
+n8n runs on the host at <http://localhost:5678>, and data persists in `~/.n8n`.
+With this option set `NEXT_APP_URL=http://localhost:3000` (not `host.docker.internal`).
+
+## Environment
+
+| Var | Used by | Value |
+|-----|---------|-------|
+| `N8N_WEBHOOK_SECRET` | compose + Next.js | long random string; must match the app's `.env.local` |
+| `NEXT_APP_URL` | compose only | `http://host.docker.internal:3000` (Docker) or `http://localhost:3000` (host) |
+
+## Scope of this sub-phase
+
+- ✅ Runs n8n and persists its data (Docker volume `n8n_data`, or `~/.n8n` with npx).
+- ✅ Shared-secret + app URL wired through env.
+- ⏭️ The Messenger / Viber workflows themselves are **6.2 / 6.3**.
+
+## Verify
+
+1. Open <http://localhost:5678> and create the owner account.
+2. Docker path: `docker compose ps` should show `n8n` as running.
+3. npx path: the terminal stays attached; Ctrl+C stops it.
