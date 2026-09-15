@@ -45,3 +45,6 @@ supabase/.temp/
 
 .vercel
 .env*
+
+# scratch scripts and payloads written while testing
+/tmp
