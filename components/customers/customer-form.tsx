@@ -26,6 +26,7 @@ export type EditableCustomer = {
   viber_id: string | null
   default_address: string | null
   zone: BaguioZone | null
+  possible_duplicate: boolean
 }
 
 const customerFormSchema = z.object({

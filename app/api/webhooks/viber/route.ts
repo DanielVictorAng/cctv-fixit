@@ -49,6 +49,7 @@ function normalize(payload: unknown): InboundMessage[] {
         senderId: record.sender_id,
         text: text || '[media]',
         phoneNumber: typeof record.phone_number === 'string' ? record.phone_number : null,
+        senderName: typeof record.sender_name === 'string' ? record.sender_name : null,
         category: typeof record.category === 'string' ? record.category : null,
         attachments,
       },
@@ -83,6 +84,8 @@ function normalize(payload: unknown): InboundMessage[] {
       channel: 'viber',
       senderId: sender.id,
       text: text || `[${type}]`,
+      // Viber is the only platform that tells us who the customer is.
+      senderName: typeof sender.name === 'string' ? sender.name : null,
       attachments: media ? [media] : [],
     },
   ]

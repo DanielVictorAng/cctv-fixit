@@ -8,6 +8,8 @@ export type InboundMessage = {
   senderId: string
   text: string
   phoneNumber?: string | null
+  /** Platform display name. Viber sends one; Messenger's webhook does not. */
+  senderName?: string | null
   category?: string | null
   attachments?: string[]
 }
@@ -68,7 +70,10 @@ export async function intakeInboundMessage(message: InboundMessage): Promise<Int
     const { data, error } = await admin
       .from('customers')
       .insert({
-        full_name: message.phoneNumber ?? `${message.channel} ${message.senderId}`,
+        full_name:
+          message.phoneNumber ??
+          message.senderName ??
+          `${message.channel} ${message.senderId}`,
         phone_number: message.phoneNumber ?? null,
         fb_messenger_id: message.channel === 'messenger' ? message.senderId : null,
         viber_id: message.channel === 'viber' ? message.senderId : null,
@@ -87,6 +92,11 @@ export async function intakeInboundMessage(message: InboundMessage): Promise<Int
     }
     if (message.channel === 'viber' && !customer.viber_id) {
       patch.viber_id = message.senderId
+    }
+    // Upgrade the auto-generated placeholder to a real name — but never touch a
+    // name a coordinator has since edited.
+    if (message.senderName && customer.full_name === `${message.channel} ${message.senderId}`) {
+      patch.full_name = message.senderName
     }
     if (Object.keys(patch).length > 0) {
       await admin.from('customers').update(patch).eq('id', customer.id)

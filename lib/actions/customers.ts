@@ -72,6 +72,47 @@ export async function updateCustomer(input: CustomerUpdateInput): Promise<Action
   return { success: true }
 }
 
+/**
+ * Clear the intake "possible_duplicate" flag once a coordinator has looked.
+ * docs/04-integrations.md §Duplicate Prevention: unsure matches are created
+ * flagged and reviewed by hand; this is the review.
+ */
+export async function resolveDuplicateCustomer(input: { id: string }): Promise<ActionResult> {
+  const parsed = customerIdSchema.safeParse(input)
+  if (!parsed.success) return { success: false, error: 'Invalid customer.' }
+
+  const auth = await requireSession()
+  if (!auth.ok) return { success: false, error: auth.error }
+  const { supabase, userId, profile } = auth.session
+  if (!hasRole(profile, WRITE_ROLES)) {
+    return { success: false, error: 'You do not have permission to do that.' }
+  }
+
+  const { id } = parsed.data
+  const { data: before } = await supabase
+    .from('customers')
+    .select('possible_duplicate')
+    .eq('id', id)
+    .single()
+  if (!before) return { success: false, error: 'Customer not found.' }
+
+  const { error } = await supabase
+    .from('customers')
+    .update({ possible_duplicate: false })
+    .eq('id', id)
+  if (error) return { success: false, error: 'Could not update the customer.' }
+
+  await writeAuditLog({
+    tableName: 'customers',
+    recordId: id,
+    action: 'UPDATE',
+    changedBy: userId,
+    oldValues: before,
+    newValues: { possible_duplicate: false },
+  })
+  return { success: true }
+}
+
 export async function deleteCustomer(input: { id: string }): Promise<ActionResult> {
   const parsed = customerIdSchema.safeParse(input)
   if (!parsed.success) return { success: false, error: 'Invalid customer.' }

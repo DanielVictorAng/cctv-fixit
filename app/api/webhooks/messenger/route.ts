@@ -83,6 +83,7 @@ function normalize(payload: unknown): InboundMessage[] {
         senderId: record.sender_id,
         text: text || IMAGE_PLACEHOLDER,
         phoneNumber: typeof record.phone_number === 'string' ? record.phone_number : null,
+        senderName: typeof record.sender_name === 'string' ? record.sender_name : null,
         category: typeof record.category === 'string' ? record.category : null,
         attachments,
       },
