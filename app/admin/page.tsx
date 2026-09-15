@@ -2,8 +2,10 @@ import type { ReactNode } from 'react'
 
 import { delta, type Analytics } from '@/lib/analytics'
 import { getAnalytics } from '@/lib/analytics-queries'
+import { AUDIT_PAGE_SIZE, summariseChanges } from '@/lib/audit-log'
 import { createServerClient } from '@/lib/supabase-client'
 import { EmptyState } from '@/components/ui/empty-state'
+import { AuditLogPanel, type AuditEntry } from '@/components/admin/audit-log-panel'
 import { ServicesPanel, type ServiceRow } from '@/components/admin/services-panel'
 import { SignOutButton } from '@/components/sign-out-button'
 
@@ -134,15 +136,34 @@ function Overview({ data }: { data: Analytics }) {
   )
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
+  const auditTable = typeof params.audit === 'string' ? params.audit : ''
+  const requestedPage = typeof params.page === 'string' ? Number(params.page) : 1
+  const auditPage = Number.isFinite(requestedPage) && requestedPage > 1 ? Math.floor(requestedPage) : 1
+  const from = (auditPage - 1) * AUDIT_PAGE_SIZE
+
   const supabase = await createServerClient()
-  const [result, servicesResult] = await Promise.all([
+
+  // Ask for one row more than a page: its presence is what proves an Older link.
+  const auditQuery = supabase
+    .from('audit_log')
+    .select('id,table_name,record_id,action,changed_by,changed_at,old_values,new_values')
+    .order('changed_at', { ascending: false })
+    .range(from, from + AUDIT_PAGE_SIZE)
+
+  const [result, servicesResult, auditResult] = await Promise.all([
     getAnalytics(supabase),
     supabase
       .from('services')
       .select('id,category,name,base_labour_price,est_duration_min')
       .order('category')
       .order('name'),
+    auditTable ? auditQuery.eq('table_name', auditTable) : auditQuery,
   ])
 
   const services: ServiceRow[] = (servicesResult.data ?? []).map((service) => ({
@@ -151,6 +172,30 @@ export default async function AdminPage() {
     name: service.name,
     base_labour_price: Number(service.base_labour_price),
     est_duration_min: service.est_duration_min,
+  }))
+
+  const auditRows = auditResult.data ?? []
+  const hasNextAuditPage = auditRows.length > AUDIT_PAGE_SIZE
+  const pageRows = auditRows.slice(0, AUDIT_PAGE_SIZE)
+
+  // Join the actor by hand rather than with an embedded select, which infers as
+  // an array in the generated types.
+  const actorIds = [
+    ...new Set(pageRows.map((row) => row.changed_by).filter((id): id is string => Boolean(id))),
+  ]
+  const actors = actorIds.length
+    ? await supabase.from('profiles').select('id,full_name').in('id', actorIds)
+    : { data: [] }
+  const actorName = new Map((actors.data ?? []).map((actor) => [actor.id, actor.full_name]))
+
+  const auditEntries: AuditEntry[] = pageRows.map((row) => ({
+    id: row.id,
+    tableName: row.table_name,
+    recordId: row.record_id,
+    action: row.action,
+    changedAt: row.changed_at,
+    changedByName: (row.changed_by ? actorName.get(row.changed_by) : null) ?? 'System',
+    changes: summariseChanges(row.action, row.old_values, row.new_values),
   }))
 
   return (
@@ -177,6 +222,19 @@ export default async function AdminPage() {
         </div>
       ) : (
         <ServicesPanel services={services} />
+      )}
+
+      {auditResult.error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+          Could not load the audit log right now. Try again shortly.
+        </div>
+      ) : (
+        <AuditLogPanel
+          entries={auditEntries}
+          activeTable={auditTable}
+          page={auditPage}
+          hasNext={hasNextAuditPage}
+        />
       )}
     </main>
   )
