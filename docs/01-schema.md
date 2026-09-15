@@ -1,5 +1,5 @@
 # 01-SCHEMA
-Schema Version: 1.5.0
+Schema Version: 1.6.0
 
 ## ENUMs
 user_role: ADMIN | COORDINATOR | TECHNICIAN | STORE_STAFF
@@ -143,6 +143,21 @@ Indexes: (ticket_id), (status)
 
 Indexes: (status, next_attempt_at)
 
+### inbound_events
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| channel | text | NOT NULL, CHECK messenger|viber | |
+| message_id | text | NOT NULL | Meta mid / Viber message_token |
+| received_at | timestamptz | auto | |
+
+UNIQUE (channel, message_id) — the idempotency key. Meta and Viber re-deliver an
+event when our 200 is slow or lost. Recording the platform message id means a
+repeat cannot open a second ticket or send a second auto-reply. Rows older than
+the 24h duplicate window serve no purpose; the cron drains them after 7 days.
+
+Indexes: (received_at)
+
 ## RLS Policies
 - profiles: SELF reads own. ADMIN reads all. COORDINATOR reads TECHNICIAN profiles.
 - customers: ADMIN+COORDINATOR full CRUD. TECHNICIAN reads only assigned ticket customers.
@@ -153,6 +168,7 @@ Indexes: (status, next_attempt_at)
 - services: ADMIN full CRUD. Others SELECT only.
 - change_orders: TECHNICIAN(assigned) SELECT + INSERT. COORDINATOR+ADMIN SELECT + UPDATE. ADMIN full.
 - outbound_queue: ADMIN SELECT only. Writes happen server-side via service role.
+- inbound_events: ADMIN SELECT only. Writes happen server-side via service role.
 
 ## Triggers
 ### on_auth_user_created (on auth.users)
