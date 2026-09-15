@@ -1,5 +1,5 @@
 # 01-SCHEMA
-Schema Version: 1.6.0
+Schema Version: 1.7.0
 
 ## ENUMs
 user_role: ADMIN | COORDINATOR | TECHNICIAN | STORE_STAFF
@@ -91,10 +91,12 @@ Indexes: (customer_id), (assigned_tech_id), (status), (scheduled_start), (zone)
 | ticket_id | uuid | FK→tickets, PK | |
 | material_id | uuid | FK→materials, PK | |
 | quantity_used | int | NOT NULL, default 1 | |
-| dispensed_at | timestamptz | nullable | Set when store dispenses the pick-list |
+| dispensed_qty | int | NOT NULL, default 0, ≥ 0 | Units the store has handed over. Below quantity_used = still to dispense |
+| dispensed_at | timestamptz | nullable | Set when the store last dispensed this line |
 | dispensed_by | uuid | FK→profiles, nullable | |
 
 Do NOT store total_cost. Calculate: quantity_used × materials.sell_price at query time.
+An approved change order that adds a material already on the job tops up quantity_used; the store then dispenses the difference.
 
 ### audit_log
 | Field | Type | Constraint | Note |
@@ -118,7 +120,7 @@ Indexes: (record_id), (changed_at)
 | requested_by | uuid | FK→profiles, NOT NULL | Technician who raised it |
 | new_description | text | NOT NULL | Added scope description |
 | additional_labour | numeric(10,2) | NOT NULL, default 0 | |
-| additional_materials | jsonb | NOT NULL, default [] | [{material_id, quantity, unit_cost}] |
+| additional_materials | jsonb | NOT NULL, default [] | [{material_id, quantity, unit_cost}] — unit_cost is the catalog cost_price when requested |
 | status | change_order_status | NOT NULL, default PENDING | |
 | resolved_by | uuid | FK→profiles, nullable | |
 | resolved_at | timestamptz | nullable | |
@@ -161,9 +163,9 @@ Indexes: (received_at)
 ## RLS Policies
 - profiles: SELF reads own. ADMIN reads all. COORDINATOR reads TECHNICIAN profiles.
 - customers: ADMIN+COORDINATOR full CRUD. TECHNICIAN reads only assigned ticket customers.
-- tickets: ADMIN+COORDINATOR full CRUD. TECHNICIAN SELECT where assigned_tech_id=auth.uid(). TECHNICIAN UPDATE only: status, photo_urls, completed_at, change_order_pending. STORE_STAFF SELECT where status IN (SCHEDULED, DISPATCHED).
+- tickets: ADMIN+COORDINATOR full CRUD. TECHNICIAN SELECT where assigned_tech_id=auth.uid(). TECHNICIAN UPDATE only: status, photo_urls, completed_at, change_order_pending. STORE_STAFF SELECT where status IN (SCHEDULED, DISPATCHED, IN_PROGRESS).
 - materials: All authenticated SELECT. ADMIN+STORE_STAFF UPDATE stock_qty.
-- ticket_materials: ADMIN+COORDINATOR SELECT + INSERT. TECHNICIAN(assigned) SELECT + INSERT. STORE_STAFF SELECT for SCHEDULED/DISPATCHED tickets, UPDATE dispensed_at/dispensed_by only. ADMIN DELETE.
+- ticket_materials: ADMIN+COORDINATOR SELECT + INSERT. TECHNICIAN(assigned) SELECT + INSERT. STORE_STAFF SELECT for SCHEDULED/DISPATCHED/IN_PROGRESS tickets, UPDATE dispensed_qty/dispensed_at/dispensed_by only. ADMIN DELETE.
 - audit_log: ADMIN SELECT only. No UPDATE. No DELETE. Ever.
 - services: ADMIN full CRUD. Others SELECT only.
 - change_orders: TECHNICIAN(assigned) SELECT + INSERT. COORDINATOR+ADMIN SELECT + UPDATE. ADMIN full.
@@ -176,6 +178,13 @@ Indexes: (received_at)
 - Defaults: `role = TECHNICIAN`, `is_active = true`, `skills = []`.
 - `full_name` = `raw_user_meta_data.full_name`, falling back to the user's email.
 - Backfills pre-existing users that lack a profile (see migration 002).
+
+## Functions
+### dispense_ticket_materials(p_ticket_id uuid) → int
+- SECURITY INVOKER: runs under the caller's RLS. ADMIN or STORE_STAFF only.
+- One transaction: locks the ticket's lines still to dispense, fails without changing anything if any material lacks stock, decrements stock_qty by each undispensed quantity, then sets dispensed_qty = quantity_used, dispensed_at, dispensed_by.
+- Returns the number of lines dispensed (0 = nothing left to dispense).
+- EXECUTE granted to authenticated only.
 
 ## Storage
 - Bucket `ticket-photos` (private). Holds ticket/job photos (see migration 003).
