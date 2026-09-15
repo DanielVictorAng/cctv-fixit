@@ -1,102 +1,187 @@
 # 01-SCHEMA
-Schema Version: 1.7.0
+Schema Version: 2.0.0
+
+Target model for the CCTV store-partner flow (docs/02-logic.md). Each table says which phase
+ships it; build only the phase being worked on. Migrations 001–008 hold the previous
+repair-business schema, which Phase 1 replaces (see §Removed in Phase 1).
 
 ## ENUMs
-user_role: ADMIN | COORDINATOR | TECHNICIAN | STORE_STAFF
-ticket_status: NEW | QUOTED | SCHEDULED | DISPATCHED | IN_PROGRESS | COMPLETED | PAID | CLOSED | CANCELLED
+user_role: ADMIN | STORE_STAFF | TECHNICIAN
+job_status: DRAFT | QUOTED | JOB_ORDER | SURVEY | SURVEY_REVIEW | SCHEDULED | DISPATCHED | IN_PROGRESS | ON_HOLD | COMPLETED | PAID | CANCELLED
 baguio_zone: ZONE_1_CENTER | ZONE_2_EAST | ZONE_3_WEST | ZONE_4_SOUTH | ZONE_5_NORTH | ZONE_6_PERIPHERAL
-payment_method: GCASH | CASH | BANK_TRANSFER | MAYA
-change_order_status: PENDING | APPROVED | REJECTED
+payment_method: CASH | GCASH | MAYA
+payment_kind: DOWNPAYMENT | BALANCE
+line_type: EQUIPMENT | SERVICE
+override_status: PENDING | APPROVED | REJECTED
 
-## Tables
+## Tables — Phase 1 (Quote)
 
 ### profiles
 | Field | Type | Constraint | Note |
 |-------|------|-----------|------|
 | id | uuid | PK, FK→auth.users | |
-| role | user_role | NOT NULL, default TECHNICIAN | |
+| role | user_role | NOT NULL, default TECHNICIAN | An admin sets the real role |
 | full_name | text | NOT NULL | |
-| skills | text[] | default [] | ['plumbing','electrical','roofing','carpentry','painting'] |
 | phone_number | text | nullable | |
-| is_active | boolean | default true | |
+| is_active | boolean | NOT NULL, default true | Inactive profiles are refused by the app and by RLS |
 
 ### customers
 | Field | Type | Constraint | Note |
 |-------|------|-----------|------|
 | id | uuid | PK, auto | |
 | full_name | text | NOT NULL | |
-| fb_messenger_id | text | UNIQUE, nullable | |
+| phone_number | text | nullable | Store searches by phone before adding a customer |
+| address | text | nullable | Default site address |
+| fb_messenger_id | text | UNIQUE, nullable | For customer updates (docs/04-integrations.md) |
 | viber_id | text | UNIQUE, nullable | |
-| phone_number | text | nullable | Primary match key |
-| default_address | text | nullable | |
-| zone | baguio_zone | nullable | |
+| created_by | uuid | FK→profiles, nullable | |
 | created_at | timestamptz | auto | |
-| possible_duplicate | boolean | default false | Intake unsure — coordinator reviews |
 
-Indexes: (phone_number), (fb_messenger_id), (viber_id)
+Indexes: (phone_number)
 
-### services
-| Field | Type | Constraint | Note |
-|-------|------|-----------|------|
-| id | uuid | PK, auto | |
-| category | text | NOT NULL | 'Plumbing','Electrical','Roofing','Carpentry','Painting','General' |
-| name | text | NOT NULL | e.g. 'Faucet Replacement' |
-| base_labour_price | numeric(10,2) | NOT NULL | |
-| est_duration_min | int | default 60 | |
-
-### tickets
-| Field | Type | Constraint | Note |
-|-------|------|-----------|------|
-| id | uuid | PK, auto | |
-| customer_id | uuid | FK→customers, NOT NULL | |
-| assigned_tech_id | uuid | FK→profiles, nullable | null until DISPATCHED |
-| status | ticket_status | NOT NULL, default NEW | |
-| service_category | text | NOT NULL | |
-| issue_description | text | NOT NULL | |
-| photo_urls | text[] | default [] | Supabase Storage paths |
-| zone | baguio_zone | NOT NULL | |
-| quoted_labour | numeric(10,2) | default 0 | |
-| quoted_materials | numeric(10,2) | default 0 | |
-| final_total | numeric(10,2) | default 0 | |
-| downpayment_amount | numeric(10,2) | nullable | Required if final_total > 5000 |
-| downpayment_paid_at | timestamptz | nullable | |
-| scheduled_start | timestamptz | nullable | |
-| scheduled_end | timestamptz | nullable | |
-| completed_at | timestamptz | nullable | |
-| warranty_expires_at | timestamptz | nullable | completed_at + 30 days |
-| payment_method | payment_method | nullable | |
-| is_paid | boolean | default false | |
-| cancellation_fee | numeric(10,2) | default 0 | |
-| change_order_pending | boolean | default false | |
-| parent_ticket_id | uuid | FK→tickets, nullable | Warranty claims link |
-| created_at | timestamptz | auto | |
-| updated_at | timestamptz | auto, trigger | |
-
-Indexes: (customer_id), (assigned_tech_id), (status), (scheduled_start), (zone)
-
-### materials
+### equipment
+The store's catalog. Equipment is sold at sell_price with no markup and is store revenue.
 | Field | Type | Constraint | Note |
 |-------|------|-----------|------|
 | id | uuid | PK, auto | |
 | sku | text | UNIQUE, NOT NULL | |
 | name | text | NOT NULL | |
-| category | text | nullable | |
-| cost_price | numeric(10,2) | NOT NULL | Hardware store cost |
-| sell_price | numeric(10,2) | NOT NULL | cost × 1.20 |
-| stock_qty | int | default 0 | |
+| category | text | NOT NULL | 'Camera','DVR','NVR','Storage','Cable','Power','Network','Accessory' |
+| sell_price | numeric(10,2) | NOT NULL, ≥ 0 | Price to the customer |
+| channels | int | nullable, > 0 | DVR/NVR only: camera channels, for the DVR suggestion |
+| stock_qty | int | NOT NULL, default 0 | |
+| is_active | boolean | NOT NULL, default true | Inactive items cannot be added to quotes |
 
-### ticket_materials
+### rate_card_items
+Our service fees. ADMIN edits them anytime; a presented quote keeps the rates it was priced at.
 | Field | Type | Constraint | Note |
 |-------|------|-----------|------|
-| ticket_id | uuid | FK→tickets, PK | |
-| material_id | uuid | FK→materials, PK | |
-| quantity_used | int | NOT NULL, default 1 | |
-| dispensed_qty | int | NOT NULL, default 0, ≥ 0 | Units the store has handed over. Below quantity_used = still to dispense |
-| dispensed_at | timestamptz | nullable | Set when the store last dispensed this line |
-| dispensed_by | uuid | FK→profiles, nullable | |
+| id | uuid | PK, auto | |
+| code | text | UNIQUE, NOT NULL | e.g. OUTDOOR_CAMERA |
+| name | text | NOT NULL | |
+| unit_label | text | NOT NULL | 'point','unit','system','10 m','hole','trip' |
+| unit_size | numeric(10,2) | NOT NULL, default 1, > 0 | Quantity per billed unit (10 for "per 10 m") |
+| rate | numeric(10,2) | NOT NULL, ≥ 0 | Price per billed unit |
+| is_camera_point | boolean | NOT NULL, default false | Counts toward the DVR suggestion |
+| is_outdoor | boolean | NOT NULL, default false | Makes a quote outdoor for the rainy-season rule |
+| is_active | boolean | NOT NULL, default true | Inactive items cannot be added to quotes |
+| sort_order | int | NOT NULL, default 0 | |
+| updated_at | timestamptz | auto, trigger | |
 
-Do NOT store total_cost. Calculate: quantity_used × materials.sell_price at query time.
-An approved change order that adds a material already on the job tops up quantity_used; the store then dispenses the difference.
+Seed rows: docs/02-logic.md §Rate Card.
+
+### pricing_rules
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| code | text | PK, CHECK RAINY_SEASON|AFTER_HOURS | |
+| name | text | NOT NULL | |
+| multiplier | numeric(6,4) | NOT NULL, ≥ 1 | 1.10, 1.50 |
+| start_month | int | nullable, 1–12 | RAINY_SEASON only |
+| end_month | int | nullable, 1–12 | RAINY_SEASON only |
+| is_active | boolean | NOT NULL, default true | |
+| updated_at | timestamptz | auto, trigger | |
+
+### quote_templates
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| name | text | UNIQUE, NOT NULL | 'Home 4-cam', 'Office 8-cam', 'WiFi', 'UPS' |
+| description | text | nullable | |
+| is_active | boolean | NOT NULL, default true | |
+| sort_order | int | NOT NULL, default 0 | |
+| created_at | timestamptz | auto | |
+
+### quote_template_lines
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| template_id | uuid | FK→quote_templates ON DELETE CASCADE, NOT NULL | |
+| line_type | line_type | NOT NULL | |
+| equipment_id | uuid | FK→equipment, nullable | EQUIPMENT lines only |
+| rate_card_item_id | uuid | FK→rate_card_items, nullable | SERVICE lines only |
+| quantity | numeric(10,2) | NOT NULL, > 0 | |
+| sort_order | int | NOT NULL, default 0 | |
+
+CHECK: EQUIPMENT ⇒ equipment_id set and rate_card_item_id null; SERVICE ⇒ the reverse.
+Indexes: (template_id)
+
+### jobs
+One row per project, from quote to settlement.
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| job_number | bigint | UNIQUE, identity | Shown to people: "Job #1024" |
+| customer_id | uuid | FK→customers, NOT NULL | |
+| status | job_status | NOT NULL, default DRAFT | |
+| site_address | text | nullable | Required before QUOTED |
+| zone | baguio_zone | nullable | Required before SCHEDULED |
+| notes | text | nullable | |
+| survey_required | boolean | NOT NULL, default false | Store decides at quote time |
+| after_hours | boolean | NOT NULL, default false | Store ticks; applies AFTER_HOURS |
+| rainy_season_applied | boolean | NOT NULL, default false | Written by pricing |
+| service_multiplier | numeric(6,4) | NOT NULL, default 1 | Product of the rules applied |
+| equipment_total | numeric(10,2) | NOT NULL, default 0 | Store revenue |
+| service_subtotal | numeric(10,2) | NOT NULL, default 0 | Before multipliers |
+| service_total | numeric(10,2) | NOT NULL, default 0 | Our revenue |
+| grand_total | numeric(10,2) | NOT NULL, default 0 | The only figure a customer sees |
+| downpayment_required | numeric(10,2) | NOT NULL, default 0 | 50% of grand_total |
+| priced_at | timestamptz | nullable | When totals were last calculated |
+| quoted_at | timestamptz | nullable | Decides the rainy season |
+| job_order_at | timestamptz | nullable | |
+| scheduled_start | timestamptz | nullable | Phase 3 |
+| scheduled_end | timestamptz | nullable | Phase 3 |
+| completed_at | timestamptz | nullable | Phase 4; decides the statement month |
+| cancelled_at | timestamptz | nullable | |
+| cancel_reason | text | nullable | Required when CANCELLED |
+| created_by | uuid | FK→profiles, NOT NULL | |
+| created_at | timestamptz | auto | |
+| updated_at | timestamptz | auto, trigger | |
+
+Indexes: (customer_id), (status), (scheduled_start), (completed_at)
+Totals are written only by server-side pricing (/lib/pricing.ts), never from a form.
+
+### job_lines
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| job_id | uuid | FK→jobs ON DELETE CASCADE, NOT NULL | |
+| line_type | line_type | NOT NULL | |
+| equipment_id | uuid | FK→equipment, nullable | EQUIPMENT lines only |
+| rate_card_item_id | uuid | FK→rate_card_items, nullable | SERVICE lines only |
+| description | text | NOT NULL | Item name when the line was added |
+| quantity | numeric(10,2) | NOT NULL, > 0 | As entered: points, units, metres, holes, trips |
+| unit_price | numeric(10,2) | NOT NULL, ≥ 0 | Equipment sell_price or rate card rate, captured by pricing |
+| unit_size | numeric(10,2) | NOT NULL, default 1, > 0 | Copied from the rate card |
+| billed_units | numeric(10,2) | NOT NULL | EQUIPMENT: quantity. SERVICE: ceil(quantity ÷ unit_size) |
+| override_price | numeric(10,2) | nullable, ≥ 0 | Special rate requested (SERVICE only) |
+| override_reason | text | nullable | Required with override_price |
+| override_status | override_status | nullable | Set with override_price |
+| override_requested_by | uuid | FK→profiles, nullable | |
+| override_decided_by | uuid | FK→profiles, nullable | ADMIN only |
+| override_decided_at | timestamptz | nullable | |
+| line_total | numeric(10,2) | NOT NULL, default 0 | billed_units × (APPROVED override_price, else unit_price) |
+| dispensed_qty | int | NOT NULL, default 0 | EQUIPMENT: units the store handed over (Phase 3) |
+| dispensed_at | timestamptz | nullable | Phase 3 |
+| dispensed_by | uuid | FK→profiles, nullable | Phase 3 |
+| sort_order | int | NOT NULL, default 0 | |
+
+CHECK: same line_type rule as quote_template_lines; override columns only on SERVICE lines.
+Indexes: (job_id)
+
+### payments
+Append-only. Receipts (Phase 5) are built from these rows.
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| job_id | uuid | FK→jobs, NOT NULL | |
+| kind | payment_kind | NOT NULL | |
+| amount | numeric(10,2) | NOT NULL, > 0 | |
+| method | payment_method | NOT NULL | |
+| reference | text | nullable | GCash/Maya reference number |
+| received_by | uuid | FK→profiles, NOT NULL | |
+| received_at | timestamptz | auto | |
+
+Indexes: (job_id), (received_at)
 
 ### audit_log
 | Field | Type | Constraint | Note |
@@ -107,26 +192,10 @@ An approved change order that adds a material already on the job tops up quantit
 | action | text | NOT NULL | INSERT/UPDATE/DELETE |
 | changed_by | uuid | FK→profiles | |
 | changed_at | timestamptz | auto | |
-| old_values | jsonb | nullable | |
+| old_values | jsonb | nullable | Same keys as new_values on UPDATE |
 | new_values | jsonb | nullable | |
 
 Indexes: (record_id), (changed_at)
-
-### change_orders
-| Field | Type | Constraint | Note |
-|-------|------|-----------|------|
-| id | uuid | PK, auto | |
-| ticket_id | uuid | FK→tickets, NOT NULL | |
-| requested_by | uuid | FK→profiles, NOT NULL | Technician who raised it |
-| new_description | text | NOT NULL | Added scope description |
-| additional_labour | numeric(10,2) | NOT NULL, default 0 | |
-| additional_materials | jsonb | NOT NULL, default [] | [{material_id, quantity, unit_cost}] — unit_cost is the catalog cost_price when requested |
-| status | change_order_status | NOT NULL, default PENDING | |
-| resolved_by | uuid | FK→profiles, nullable | |
-| resolved_at | timestamptz | nullable | |
-| created_at | timestamptz | auto | |
-
-Indexes: (ticket_id), (status)
 
 ### outbound_queue
 | Field | Type | Constraint | Note |
@@ -135,7 +204,7 @@ Indexes: (ticket_id), (status)
 | channel | text | NOT NULL, CHECK messenger|viber | |
 | recipient_id | text | NOT NULL | Platform-scoped id |
 | body | text | NOT NULL | Rendered message |
-| ticket_id | uuid | FK→tickets, nullable | |
+| job_id | uuid | FK→jobs, nullable | |
 | attempts | int | NOT NULL, default 0 | |
 | last_error | text | nullable | |
 | status | text | NOT NULL, default PENDING | PENDING|SENT|FAILED |
@@ -145,58 +214,98 @@ Indexes: (ticket_id), (status)
 
 Indexes: (status, next_attempt_at)
 
-### inbound_events
+## Tables — later phases (columns finalised when the phase starts)
+
+### job_technicians — Phase 2 (survey), Phase 3 (install)
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| job_id | uuid | FK→jobs, PK | |
+| technician_id | uuid | FK→profiles, PK | |
+| purpose | text | PK, CHECK SURVEY|INSTALL | |
+| assigned_by | uuid | FK→profiles, NOT NULL | |
+| assigned_at | timestamptz | auto | |
+| acknowledged_at | timestamptz | nullable | Phase 3: tech taps Acknowledge |
+
+### job_photos — Phase 2 (survey), Phase 4 (install)
 | Field | Type | Constraint | Note |
 |-------|------|-----------|------|
 | id | uuid | PK, auto | |
-| channel | text | NOT NULL, CHECK messenger|viber | |
-| message_id | text | NOT NULL | Meta mid / Viber message_token |
-| received_at | timestamptz | auto | |
+| job_id | uuid | FK→jobs, NOT NULL | |
+| kind | text | NOT NULL, CHECK SURVEY|MILESTONE|FINAL | |
+| storage_path | text | NOT NULL | Supabase Storage path under the job's folder |
+| caption | text | nullable | |
+| uploaded_by | uuid | FK→profiles, NOT NULL | |
+| uploaded_at | timestamptz | auto | |
 
-UNIQUE (channel, message_id) — the idempotency key. Meta and Viber re-deliver an
-event when our 200 is slow or lost. Recording the platform message id means a
-repeat cannot open a second ticket or send a second auto-reply. Rows older than
-the 24h duplicate window serve no purpose; the cron drains them after 7 days.
+Phase 2 adds to jobs: survey_notes, survey_submitted_at, survey_reviewed_at, final_quote_confirmed_at.
 
-Indexes: (received_at)
+### job_check_ins — Phase 4
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| job_id | uuid | FK→jobs, NOT NULL | |
+| technician_id | uuid | FK→profiles, NOT NULL | |
+| latitude | numeric(9,6) | NOT NULL | |
+| longitude | numeric(9,6) | NOT NULL | |
+| accuracy_m | numeric(8,2) | nullable | |
+| checked_in_at | timestamptz | auto | |
 
-## RLS Policies
-- profiles: SELF reads own. ADMIN reads all. COORDINATOR reads TECHNICIAN profiles.
-- customers: ADMIN+COORDINATOR full CRUD. TECHNICIAN reads only assigned ticket customers.
-- tickets: ADMIN+COORDINATOR full CRUD. TECHNICIAN SELECT where assigned_tech_id=auth.uid(). TECHNICIAN UPDATE only: status, photo_urls, completed_at, change_order_pending. STORE_STAFF SELECT where status IN (SCHEDULED, DISPATCHED, IN_PROGRESS).
-- materials: All authenticated SELECT. ADMIN+STORE_STAFF UPDATE stock_qty.
-- ticket_materials: ADMIN+COORDINATOR SELECT + INSERT. TECHNICIAN(assigned) SELECT + INSERT. STORE_STAFF SELECT for SCHEDULED/DISPATCHED/IN_PROGRESS tickets, UPDATE dispensed_qty/dispensed_at/dispensed_by only. ADMIN DELETE.
+Phase 4 adds to jobs: hold_reason, signature_path, signed_by_name, signed_at.
+
+### statements — Phase 5
+| Field | Type | Constraint | Note |
+|-------|------|-----------|------|
+| id | uuid | PK, auto | |
+| month | date | UNIQUE, NOT NULL | First day of the month (Asia/Manila) |
+| job_count | int | NOT NULL | |
+| service_total | numeric(12,2) | NOT NULL | What the store owes us |
+| generated_at | timestamptz | auto | |
+| paid_at | timestamptz | nullable | Admin marks the store's payment |
+| paid_reference | text | nullable | |
+
+## Removed in Phase 1
+tickets, ticket_materials, change_orders, services, materials (replaced by equipment),
+inbound_events, customers.zone, customers.possible_duplicate, profiles.skills, the COORDINATOR
+role, ticket_status and change_order_status enums, BANK_TRANSFER payment method, and
+dispense_ticket_materials() (rebuilt on job_lines in Phase 3).
+
+## RLS Policies (Phase 1)
+Role helpers count active profiles only.
+- profiles: SELF reads own. ADMIN reads all and updates role/is_active. STORE_STAFF reads TECHNICIAN names.
+- customers: ADMIN+STORE_STAFF SELECT, INSERT, UPDATE. ADMIN DELETE.
+- equipment: All authenticated SELECT. ADMIN+STORE_STAFF INSERT, UPDATE. ADMIN DELETE.
+- rate_card_items, pricing_rules, quote_templates, quote_template_lines: All authenticated SELECT. ADMIN INSERT, UPDATE, DELETE.
+- jobs: ADMIN+STORE_STAFF SELECT, INSERT, UPDATE. No DELETE (cancel instead).
+- job_lines: ADMIN+STORE_STAFF SELECT. ADMIN+STORE_STAFF INSERT, UPDATE, DELETE while the job is DRAFT. Only ADMIN changes override_status and override_decided_*.
+- payments: ADMIN+STORE_STAFF SELECT, INSERT. No UPDATE. No DELETE.
 - audit_log: ADMIN SELECT only. No UPDATE. No DELETE. Ever.
-- services: ADMIN full CRUD. Others SELECT only.
-- change_orders: TECHNICIAN(assigned) SELECT + INSERT. COORDINATOR+ADMIN SELECT + UPDATE. ADMIN full.
 - outbound_queue: ADMIN SELECT only. Writes happen server-side via service role.
-- inbound_events: ADMIN SELECT only. Writes happen server-side via service role.
+Later phases add TECHNICIAN access to jobs, job_lines and customers of jobs they are assigned to.
 
 ## Triggers
 ### on_auth_user_created (on auth.users)
 - Auto-creates a `profiles` row whenever a new auth user signs up.
-- Defaults: `role = TECHNICIAN`, `is_active = true`, `skills = []`.
+- Defaults: `role = TECHNICIAN`, `is_active = true`.
 - `full_name` = `raw_user_meta_data.full_name`, falling back to the user's email.
-- Backfills pre-existing users that lack a profile (see migration 002).
+- Public sign-ups must stay disabled in Supabase Auth; an admin creates accounts.
 
-## Functions
-### dispense_ticket_materials(p_ticket_id uuid) → int
-- SECURITY INVOKER: runs under the caller's RLS. ADMIN or STORE_STAFF only.
-- One transaction: locks the ticket's lines still to dispense, fails without changing anything if any material lacks stock, decrements stock_qty by each undispensed quantity, then sets dispensed_qty = quantity_used, dispensed_at, dispensed_by.
-- Returns the number of lines dispensed (0 = nothing left to dispense).
-- EXECUTE granted to authenticated only.
+### set_updated_at
+- jobs, rate_card_items, pricing_rules.
+
+### job_lines override guard
+- Non-admins cannot change override_status, override_decided_by or override_decided_at.
 
 ## Storage
-- Bucket `ticket-photos` (private). Holds ticket/job photos (see migration 003).
+- Bucket `job-photos` (private) — Phase 2. Path `<job_id>/<kind>/<file>`. Reads by signed URL (1 hour).
+- Bucket `signatures` (private) — Phase 4.
 - Uploads: max 5MB, image/jpeg|png|webp, via Server Action only (service role).
-- Reads: signed URLs (1 hour).
 
 ## Security Rules
 1. NEVER expose service_role key to client. Server Actions only.
 2. Uploads: max 5MB, image/jpeg|png|webp only.
 3. Webhooks: validate signature headers. Reject invalid.
-4. Rate limit: max 10 tickets per customer per 24h.
-5. All inputs through Zod before DB.
+4. All inputs through Zod before DB.
+5. A technician only ever reads jobs they are assigned to.
 
 ## Migration Protocol
 1. Update THIS file first.
