@@ -27,7 +27,8 @@ async function postJson(
   }
 }
 
-async function deliver(
+/** One delivery attempt, no retries and no queueing. Used by the queue drain. */
+export async function deliverOnce(
   channel: MessageChannel,
   recipientId: string,
   body: string
@@ -64,7 +65,7 @@ export async function sendMessage(
   let lastError = 'unknown error'
 
   for (let attempt = 0; attempt < BACKOFF_MS.length; attempt += 1) {
-    const result = await deliver(channel, recipientId, body)
+    const result = await deliverOnce(channel, recipientId, body)
     if (result.ok) return true
     lastError = result.error ?? 'unknown error'
     if (attempt < BACKOFF_MS.length - 1) {
