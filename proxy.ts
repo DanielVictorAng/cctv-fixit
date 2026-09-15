@@ -6,10 +6,9 @@ type UserRole = Database['public']['Enums']['user_role']
 
 /** Route areas each role may open; the first is its home (docs/03-ui-map.md §Routes). */
 const ROLE_AREAS: Record<UserRole, string[]> = {
-  ADMIN: ['/admin', '/coordinator'],
-  COORDINATOR: ['/coordinator'],
+  ADMIN: ['/admin', '/quotes', '/store/inventory'],
+  STORE_STAFF: ['/quotes', '/store'],
   TECHNICIAN: ['/tech'],
-  STORE_STAFF: ['/store'],
 }
 
 function canOpen(areas: string[], pathname: string): boolean {
@@ -42,14 +41,13 @@ export async function proxy(request: NextRequest) {
   // Authenticated: resolve role from the profile.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role,is_active')
     .eq('id', user.id)
     .single()
 
-  const role = (profile?.role ?? null) as UserRole | null
-  const areas = role ? ROLE_AREAS[role] : null
+  const areas = profile?.is_active ? ROLE_AREAS[profile.role] : null
 
-  // Signed in but no profile/role (e.g. trigger not yet applied): force re-auth.
+  // No profile, or a deactivated one: sign out.
   if (!areas) {
     await supabase.auth.signOut()
     return redirect('/login')

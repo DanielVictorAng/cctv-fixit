@@ -7,35 +7,27 @@ import { z } from 'zod'
 import { useRouter } from 'next/navigation'
 
 import { createCustomer, updateCustomer } from '@/lib/actions/customers'
-import { baguioZoneSchema } from '@/lib/validators'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
 import { toast } from '@/components/ui/toaster'
-import type { Database } from '@/lib/types'
-
-type BaguioZone = Database['public']['Enums']['baguio_zone']
 
 export type EditableCustomer = {
   id: string
   full_name: string
   phone_number: string | null
+  address: string | null
   fb_messenger_id: string | null
   viber_id: string | null
-  default_address: string | null
-  zone: BaguioZone | null
-  possible_duplicate: boolean
 }
 
 const customerFormSchema = z.object({
   full_name: z.string().trim().min(1, 'Name is required'),
   phone_number: z.string(),
+  address: z.string(),
   fb_messenger_id: z.string(),
   viber_id: z.string(),
-  default_address: z.string(),
-  zone: z.union([baguioZoneSchema, z.literal('')]),
 })
 
 type CustomerFormValues = z.infer<typeof customerFormSchema>
@@ -43,10 +35,9 @@ type CustomerFormValues = z.infer<typeof customerFormSchema>
 const EMPTY: CustomerFormValues = {
   full_name: '',
   phone_number: '',
+  address: '',
   fb_messenger_id: '',
   viber_id: '',
-  default_address: '',
-  zone: '',
 }
 
 export function CustomerFormDialog({
@@ -78,10 +69,9 @@ export function CustomerFormDialog({
         ? {
             full_name: customer.full_name,
             phone_number: customer.phone_number ?? '',
+            address: customer.address ?? '',
             fb_messenger_id: customer.fb_messenger_id ?? '',
             viber_id: customer.viber_id ?? '',
-            default_address: customer.default_address ?? '',
-            zone: customer.zone ?? '',
           }
         : EMPTY
     )
@@ -91,10 +81,9 @@ export function CustomerFormDialog({
     const payload = {
       full_name: values.full_name,
       phone_number: values.phone_number || null,
+      address: values.address || null,
       fb_messenger_id: values.fb_messenger_id || null,
       viber_id: values.viber_id || null,
-      default_address: values.default_address || null,
-      zone: values.zone || null,
     }
 
     setPending(true)
@@ -131,19 +120,11 @@ export function CustomerFormDialog({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="phone_number">Phone</Label>
-            <Input id="phone_number" {...register('phone_number')} />
+            <Input id="phone_number" inputMode="tel" {...register('phone_number')} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="zone">Zone</Label>
-            <Select id="zone" {...register('zone')}>
-              <option value="">Unassigned</option>
-              <option value="ZONE_1_CENTER">Zone 1 — Center</option>
-              <option value="ZONE_2_EAST">Zone 2 — East</option>
-              <option value="ZONE_3_WEST">Zone 3 — West</option>
-              <option value="ZONE_4_SOUTH">Zone 4 — South</option>
-              <option value="ZONE_5_NORTH">Zone 5 — North</option>
-              <option value="ZONE_6_PERIPHERAL">Zone 6 — Peripheral</option>
-            </Select>
+            <Label htmlFor="address">Address</Label>
+            <Input id="address" {...register('address')} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="fb_messenger_id">Messenger ID</Label>
@@ -153,11 +134,6 @@ export function CustomerFormDialog({
             <Label htmlFor="viber_id">Viber ID</Label>
             <Input id="viber_id" {...register('viber_id')} />
           </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="default_address">Default address</Label>
-          <Input id="default_address" {...register('default_address')} />
         </div>
 
         <Button type="submit" className="w-full" disabled={pending}>

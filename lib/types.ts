@@ -55,153 +55,303 @@ export type Database = {
           },
         ]
       }
-      change_orders: {
-        Row: {
-          additional_labour: number
-          additional_materials: Json
-          created_at: string
-          id: string
-          new_description: string
-          requested_by: string
-          resolved_at: string | null
-          resolved_by: string | null
-          status: Database["public"]["Enums"]["change_order_status"]
-          ticket_id: string
-        }
-        Insert: {
-          additional_labour?: number
-          additional_materials?: Json
-          created_at?: string
-          id?: string
-          new_description: string
-          requested_by: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: Database["public"]["Enums"]["change_order_status"]
-          ticket_id: string
-        }
-        Update: {
-          additional_labour?: number
-          additional_materials?: Json
-          created_at?: string
-          id?: string
-          new_description?: string
-          requested_by?: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          status?: Database["public"]["Enums"]["change_order_status"]
-          ticket_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "change_orders_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "change_orders_resolved_by_fkey"
-            columns: ["resolved_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "change_orders_ticket_id_fkey"
-            columns: ["ticket_id"]
-            isOneToOne: false
-            referencedRelation: "tickets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       customers: {
         Row: {
+          address: string | null
           created_at: string
-          default_address: string | null
+          created_by: string | null
           fb_messenger_id: string | null
           full_name: string
           id: string
           phone_number: string | null
-          possible_duplicate: boolean
           viber_id: string | null
-          zone: Database["public"]["Enums"]["baguio_zone"] | null
         }
         Insert: {
+          address?: string | null
           created_at?: string
-          default_address?: string | null
+          created_by?: string | null
           fb_messenger_id?: string | null
           full_name: string
           id?: string
           phone_number?: string | null
-          possible_duplicate?: boolean
           viber_id?: string | null
-          zone?: Database["public"]["Enums"]["baguio_zone"] | null
         }
         Update: {
+          address?: string | null
           created_at?: string
-          default_address?: string | null
+          created_by?: string | null
           fb_messenger_id?: string | null
           full_name?: string
           id?: string
           phone_number?: string | null
-          possible_duplicate?: boolean
           viber_id?: string | null
-          zone?: Database["public"]["Enums"]["baguio_zone"] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      inbound_events: {
+      equipment: {
         Row: {
-          channel: string
+          category: string
+          channels: number | null
           id: string
-          message_id: string
-          received_at: string
-        }
-        Insert: {
-          channel: string
-          id?: string
-          message_id: string
-          received_at?: string
-        }
-        Update: {
-          channel?: string
-          id?: string
-          message_id?: string
-          received_at?: string
-        }
-        Relationships: []
-      }
-      materials: {
-        Row: {
-          category: string | null
-          cost_price: number
-          id: string
+          is_active: boolean
           name: string
           sell_price: number
           sku: string
           stock_qty: number
         }
         Insert: {
-          category?: string | null
-          cost_price: number
+          category: string
+          channels?: number | null
           id?: string
+          is_active?: boolean
           name: string
           sell_price: number
           sku: string
           stock_qty?: number
         }
         Update: {
-          category?: string | null
-          cost_price?: number
+          category?: string
+          channels?: number | null
           id?: string
+          is_active?: boolean
           name?: string
           sell_price?: number
           sku?: string
           stock_qty?: number
         }
         Relationships: []
+      }
+      job_lines: {
+        Row: {
+          billed_units: number
+          description: string
+          dispensed_at: string | null
+          dispensed_by: string | null
+          dispensed_qty: number
+          equipment_id: string | null
+          id: string
+          job_id: string
+          line_total: number
+          line_type: Database["public"]["Enums"]["line_type"]
+          override_decided_at: string | null
+          override_decided_by: string | null
+          override_price: number | null
+          override_reason: string | null
+          override_requested_by: string | null
+          override_status: Database["public"]["Enums"]["override_status"] | null
+          quantity: number
+          rate_card_item_id: string | null
+          sort_order: number
+          unit_price: number
+          unit_size: number
+        }
+        Insert: {
+          billed_units: number
+          description: string
+          dispensed_at?: string | null
+          dispensed_by?: string | null
+          dispensed_qty?: number
+          equipment_id?: string | null
+          id?: string
+          job_id: string
+          line_total?: number
+          line_type: Database["public"]["Enums"]["line_type"]
+          override_decided_at?: string | null
+          override_decided_by?: string | null
+          override_price?: number | null
+          override_reason?: string | null
+          override_requested_by?: string | null
+          override_status?:
+            | Database["public"]["Enums"]["override_status"]
+            | null
+          quantity: number
+          rate_card_item_id?: string | null
+          sort_order?: number
+          unit_price: number
+          unit_size?: number
+        }
+        Update: {
+          billed_units?: number
+          description?: string
+          dispensed_at?: string | null
+          dispensed_by?: string | null
+          dispensed_qty?: number
+          equipment_id?: string | null
+          id?: string
+          job_id?: string
+          line_total?: number
+          line_type?: Database["public"]["Enums"]["line_type"]
+          override_decided_at?: string | null
+          override_decided_by?: string | null
+          override_price?: number | null
+          override_reason?: string | null
+          override_requested_by?: string | null
+          override_status?:
+            | Database["public"]["Enums"]["override_status"]
+            | null
+          quantity?: number
+          rate_card_item_id?: string | null
+          sort_order?: number
+          unit_price?: number
+          unit_size?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_lines_dispensed_by_fkey"
+            columns: ["dispensed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_lines_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_lines_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_lines_override_decided_by_fkey"
+            columns: ["override_decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_lines_override_requested_by_fkey"
+            columns: ["override_requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_lines_rate_card_item_id_fkey"
+            columns: ["rate_card_item_id"]
+            isOneToOne: false
+            referencedRelation: "rate_card_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          after_hours: boolean
+          cancel_reason: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          customer_id: string
+          downpayment_required: number
+          equipment_total: number
+          grand_total: number
+          id: string
+          job_number: number
+          job_order_at: string | null
+          notes: string | null
+          priced_at: string | null
+          quoted_at: string | null
+          rainy_season_applied: boolean
+          scheduled_end: string | null
+          scheduled_start: string | null
+          service_multiplier: number
+          service_subtotal: number
+          service_total: number
+          site_address: string | null
+          status: Database["public"]["Enums"]["job_status"]
+          survey_required: boolean
+          updated_at: string
+          zone: Database["public"]["Enums"]["baguio_zone"] | null
+        }
+        Insert: {
+          after_hours?: boolean
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          customer_id: string
+          downpayment_required?: number
+          equipment_total?: number
+          grand_total?: number
+          id?: string
+          job_number?: never
+          job_order_at?: string | null
+          notes?: string | null
+          priced_at?: string | null
+          quoted_at?: string | null
+          rainy_season_applied?: boolean
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          service_multiplier?: number
+          service_subtotal?: number
+          service_total?: number
+          site_address?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          survey_required?: boolean
+          updated_at?: string
+          zone?: Database["public"]["Enums"]["baguio_zone"] | null
+        }
+        Update: {
+          after_hours?: boolean
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          customer_id?: string
+          downpayment_required?: number
+          equipment_total?: number
+          grand_total?: number
+          id?: string
+          job_number?: never
+          job_order_at?: string | null
+          notes?: string | null
+          priced_at?: string | null
+          quoted_at?: string | null
+          rainy_season_applied?: boolean
+          scheduled_end?: string | null
+          scheduled_start?: string | null
+          service_multiplier?: number
+          service_subtotal?: number
+          service_total?: number
+          site_address?: string | null
+          status?: Database["public"]["Enums"]["job_status"]
+          survey_required?: boolean
+          updated_at?: string
+          zone?: Database["public"]["Enums"]["baguio_zone"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       outbound_queue: {
         Row: {
@@ -210,12 +360,12 @@ export type Database = {
           channel: string
           created_at: string
           id: string
+          job_id: string | null
           last_error: string | null
           next_attempt_at: string
           recipient_id: string
           sent_at: string | null
           status: string
-          ticket_id: string | null
         }
         Insert: {
           attempts?: number
@@ -223,12 +373,12 @@ export type Database = {
           channel: string
           created_at?: string
           id?: string
+          job_id?: string | null
           last_error?: string | null
           next_attempt_at?: string
           recipient_id: string
           sent_at?: string | null
           status?: string
-          ticket_id?: string | null
         }
         Update: {
           attempts?: number
@@ -236,22 +386,100 @@ export type Database = {
           channel?: string
           created_at?: string
           id?: string
+          job_id?: string | null
           last_error?: string | null
           next_attempt_at?: string
           recipient_id?: string
           sent_at?: string | null
           status?: string
-          ticket_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "outbound_queue_ticket_id_fkey"
-            columns: ["ticket_id"]
+            foreignKeyName: "outbound_queue_job_id_fkey"
+            columns: ["job_id"]
             isOneToOne: false
-            referencedRelation: "tickets"
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          id: string
+          job_id: string
+          kind: Database["public"]["Enums"]["payment_kind"]
+          method: Database["public"]["Enums"]["payment_method"]
+          received_at: string
+          received_by: string
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          id?: string
+          job_id: string
+          kind: Database["public"]["Enums"]["payment_kind"]
+          method: Database["public"]["Enums"]["payment_method"]
+          received_at?: string
+          received_by: string
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          id?: string
+          job_id?: string
+          kind?: Database["public"]["Enums"]["payment_kind"]
+          method?: Database["public"]["Enums"]["payment_method"]
+          received_at?: string
+          received_by?: string
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_rules: {
+        Row: {
+          code: string
+          end_month: number | null
+          is_active: boolean
+          multiplier: number
+          name: string
+          start_month: number | null
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          end_month?: number | null
+          is_active?: boolean
+          multiplier: number
+          name: string
+          start_month?: number | null
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          end_month?: number | null
+          is_active?: boolean
+          multiplier?: number
+          name?: string
+          start_month?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -260,7 +488,6 @@ export type Database = {
           is_active: boolean
           phone_number: string | null
           role: Database["public"]["Enums"]["user_role"]
-          skills: string[]
         }
         Insert: {
           full_name: string
@@ -268,7 +495,6 @@ export type Database = {
           is_active?: boolean
           phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
-          skills?: string[]
         }
         Update: {
           full_name?: string
@@ -276,202 +502,141 @@ export type Database = {
           is_active?: boolean
           phone_number?: string | null
           role?: Database["public"]["Enums"]["user_role"]
-          skills?: string[]
         }
         Relationships: []
       }
-      services: {
+      quote_template_lines: {
         Row: {
-          base_labour_price: number
-          category: string
-          est_duration_min: number
+          equipment_id: string | null
           id: string
-          name: string
+          line_type: Database["public"]["Enums"]["line_type"]
+          quantity: number
+          rate_card_item_id: string | null
+          sort_order: number
+          template_id: string
         }
         Insert: {
-          base_labour_price: number
-          category: string
-          est_duration_min?: number
+          equipment_id?: string | null
           id?: string
-          name: string
+          line_type: Database["public"]["Enums"]["line_type"]
+          quantity: number
+          rate_card_item_id?: string | null
+          sort_order?: number
+          template_id: string
         }
         Update: {
-          base_labour_price?: number
-          category?: string
-          est_duration_min?: number
+          equipment_id?: string | null
           id?: string
-          name?: string
-        }
-        Relationships: []
-      }
-      ticket_materials: {
-        Row: {
-          dispensed_at: string | null
-          dispensed_by: string | null
-          dispensed_qty: number
-          material_id: string
-          quantity_used: number
-          ticket_id: string
-        }
-        Insert: {
-          dispensed_at?: string | null
-          dispensed_by?: string | null
-          dispensed_qty?: number
-          material_id: string
-          quantity_used?: number
-          ticket_id: string
-        }
-        Update: {
-          dispensed_at?: string | null
-          dispensed_by?: string | null
-          dispensed_qty?: number
-          material_id?: string
-          quantity_used?: number
-          ticket_id?: string
+          line_type?: Database["public"]["Enums"]["line_type"]
+          quantity?: number
+          rate_card_item_id?: string | null
+          sort_order?: number
+          template_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "ticket_materials_dispensed_by_fkey"
-            columns: ["dispensed_by"]
+            foreignKeyName: "quote_template_lines_equipment_id_fkey"
+            columns: ["equipment_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "equipment"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ticket_materials_material_id_fkey"
-            columns: ["material_id"]
+            foreignKeyName: "quote_template_lines_rate_card_item_id_fkey"
+            columns: ["rate_card_item_id"]
             isOneToOne: false
-            referencedRelation: "materials"
+            referencedRelation: "rate_card_items"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ticket_materials_ticket_id_fkey"
-            columns: ["ticket_id"]
+            foreignKeyName: "quote_template_lines_template_id_fkey"
+            columns: ["template_id"]
             isOneToOne: false
-            referencedRelation: "tickets"
+            referencedRelation: "quote_templates"
             referencedColumns: ["id"]
           },
         ]
       }
-      tickets: {
+      quote_templates: {
         Row: {
-          assigned_tech_id: string | null
-          cancellation_fee: number
-          change_order_pending: boolean
-          completed_at: string | null
           created_at: string
-          customer_id: string
-          downpayment_amount: number | null
-          downpayment_paid_at: string | null
-          final_total: number
+          description: string | null
           id: string
-          is_paid: boolean
-          issue_description: string
-          parent_ticket_id: string | null
-          payment_method: Database["public"]["Enums"]["payment_method"] | null
-          photo_urls: string[]
-          quoted_labour: number
-          quoted_materials: number
-          scheduled_end: string | null
-          scheduled_start: string | null
-          service_category: string
-          status: Database["public"]["Enums"]["ticket_status"]
-          updated_at: string
-          warranty_expires_at: string | null
-          zone: Database["public"]["Enums"]["baguio_zone"]
+          is_active: boolean
+          name: string
+          sort_order: number
         }
         Insert: {
-          assigned_tech_id?: string | null
-          cancellation_fee?: number
-          change_order_pending?: boolean
-          completed_at?: string | null
           created_at?: string
-          customer_id: string
-          downpayment_amount?: number | null
-          downpayment_paid_at?: string | null
-          final_total?: number
+          description?: string | null
           id?: string
-          is_paid?: boolean
-          issue_description: string
-          parent_ticket_id?: string | null
-          payment_method?: Database["public"]["Enums"]["payment_method"] | null
-          photo_urls?: string[]
-          quoted_labour?: number
-          quoted_materials?: number
-          scheduled_end?: string | null
-          scheduled_start?: string | null
-          service_category: string
-          status?: Database["public"]["Enums"]["ticket_status"]
-          updated_at?: string
-          warranty_expires_at?: string | null
-          zone: Database["public"]["Enums"]["baguio_zone"]
+          is_active?: boolean
+          name: string
+          sort_order?: number
         }
         Update: {
-          assigned_tech_id?: string | null
-          cancellation_fee?: number
-          change_order_pending?: boolean
-          completed_at?: string | null
           created_at?: string
-          customer_id?: string
-          downpayment_amount?: number | null
-          downpayment_paid_at?: string | null
-          final_total?: number
+          description?: string | null
           id?: string
-          is_paid?: boolean
-          issue_description?: string
-          parent_ticket_id?: string | null
-          payment_method?: Database["public"]["Enums"]["payment_method"] | null
-          photo_urls?: string[]
-          quoted_labour?: number
-          quoted_materials?: number
-          scheduled_end?: string | null
-          scheduled_start?: string | null
-          service_category?: string
-          status?: Database["public"]["Enums"]["ticket_status"]
-          updated_at?: string
-          warranty_expires_at?: string | null
-          zone?: Database["public"]["Enums"]["baguio_zone"]
+          is_active?: boolean
+          name?: string
+          sort_order?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "tickets_assigned_tech_id_fkey"
-            columns: ["assigned_tech_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tickets_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tickets_parent_ticket_id_fkey"
-            columns: ["parent_ticket_id"]
-            isOneToOne: false
-            referencedRelation: "tickets"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      rate_card_items: {
+        Row: {
+          code: string
+          id: string
+          is_active: boolean
+          is_camera_point: boolean
+          is_outdoor: boolean
+          name: string
+          rate: number
+          sort_order: number
+          unit_label: string
+          unit_size: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          id?: string
+          is_active?: boolean
+          is_camera_point?: boolean
+          is_outdoor?: boolean
+          name: string
+          rate: number
+          sort_order?: number
+          unit_label: string
+          unit_size?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          id?: string
+          is_active?: boolean
+          is_camera_point?: boolean
+          is_outdoor?: boolean
+          name?: string
+          rate?: number
+          sort_order?: number
+          unit_label?: string
+          unit_size?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      dispense_ticket_materials: {
-        Args: { p_ticket_id: string }
-        Returns: number
-      }
       has_role: {
         Args: { r: Database["public"]["Enums"]["user_role"] }
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
-      is_assigned_tech: { Args: { t: string }; Returns: boolean }
-      is_assigned_tech_of_customer: { Args: { c: string }; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
     }
     Enums: {
       baguio_zone:
@@ -481,19 +646,24 @@ export type Database = {
         | "ZONE_4_SOUTH"
         | "ZONE_5_NORTH"
         | "ZONE_6_PERIPHERAL"
-      change_order_status: "PENDING" | "APPROVED" | "REJECTED"
-      payment_method: "GCASH" | "CASH" | "BANK_TRANSFER" | "MAYA"
-      ticket_status:
-        | "NEW"
+      job_status:
+        | "DRAFT"
         | "QUOTED"
+        | "JOB_ORDER"
+        | "SURVEY"
+        | "SURVEY_REVIEW"
         | "SCHEDULED"
         | "DISPATCHED"
         | "IN_PROGRESS"
+        | "ON_HOLD"
         | "COMPLETED"
         | "PAID"
-        | "CLOSED"
         | "CANCELLED"
-      user_role: "ADMIN" | "COORDINATOR" | "TECHNICIAN" | "STORE_STAFF"
+      line_type: "EQUIPMENT" | "SERVICE"
+      override_status: "PENDING" | "APPROVED" | "REJECTED"
+      payment_kind: "DOWNPAYMENT" | "BALANCE"
+      payment_method: "CASH" | "GCASH" | "MAYA"
+      user_role: "ADMIN" | "STORE_STAFF" | "TECHNICIAN"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -629,20 +799,25 @@ export const Constants = {
         "ZONE_5_NORTH",
         "ZONE_6_PERIPHERAL",
       ],
-      change_order_status: ["PENDING", "APPROVED", "REJECTED"],
-      payment_method: ["GCASH", "CASH", "BANK_TRANSFER", "MAYA"],
-      ticket_status: [
-        "NEW",
+      job_status: [
+        "DRAFT",
         "QUOTED",
+        "JOB_ORDER",
+        "SURVEY",
+        "SURVEY_REVIEW",
         "SCHEDULED",
         "DISPATCHED",
         "IN_PROGRESS",
+        "ON_HOLD",
         "COMPLETED",
         "PAID",
-        "CLOSED",
         "CANCELLED",
       ],
-      user_role: ["ADMIN", "COORDINATOR", "TECHNICIAN", "STORE_STAFF"],
+      line_type: ["EQUIPMENT", "SERVICE"],
+      override_status: ["PENDING", "APPROVED", "REJECTED"],
+      payment_kind: ["DOWNPAYMENT", "BALANCE"],
+      payment_method: ["CASH", "GCASH", "MAYA"],
+      user_role: ["ADMIN", "STORE_STAFF", "TECHNICIAN"],
     },
   },
 } as const

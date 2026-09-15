@@ -6,13 +6,16 @@ export const AUDIT_PAGE_SIZE = 25
 
 /** Tables the app writes audit rows for. Used as the filter chips. */
 export const AUDIT_TABLES = [
-  'change_orders',
   'customers',
-  'materials',
+  'equipment',
+  'job_lines',
+  'jobs',
+  'payments',
+  'pricing_rules',
   'profiles',
-  'services',
-  'ticket_materials',
-  'tickets',
+  'quote_template_lines',
+  'quote_templates',
+  'rate_card_items',
 ]
 
 export type AuditChange = { field: string; from: string; to: string }

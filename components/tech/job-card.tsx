@@ -4,12 +4,12 @@ import { CalendarClock, MapPin } from 'lucide-react'
 import { StatusBadge } from '@/components/ui/status-badge'
 import type { Database } from '@/lib/types'
 
-type TicketStatus = Database['public']['Enums']['ticket_status']
+type JobStatus = Database['public']['Enums']['job_status']
 type BaguioZone = Database['public']['Enums']['baguio_zone']
 
 export type JobSummary = {
   id: string
-  status: TicketStatus
+  status: JobStatus
   service_category: string
   zone: BaguioZone
   customer_name: string | null

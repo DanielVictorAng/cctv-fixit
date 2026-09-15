@@ -7,14 +7,14 @@ import { sendMessage } from '@/lib/messaging/send'
 import { missingTemplateVars, renderTemplate } from '@/lib/messaging/templates'
 import type { ActionResult } from '@/lib/action-result'
 
-const STAFF_ROLES: UserRole[] = ['ADMIN', 'COORDINATOR']
+const STAFF_ROLES: UserRole[] = ['ADMIN', 'STORE_STAFF']
 
 const sendTemplateSchema = z.object({
   channel: z.enum(['messenger', 'viber']),
   recipient_id: z.string().min(1),
   template: z.enum(['quote', 'dispatch', 'complete', 'warranty', 'reminder', 'ack']),
   vars: z.record(z.string(), z.union([z.string(), z.number()])).default({}),
-  ticket_id: z.uuid().nullish(),
+  job_id: z.uuid().nullish(),
 })
 
 export type SendTemplateInput = z.infer<typeof sendTemplateSchema>
@@ -43,7 +43,7 @@ export async function sendTemplateMessage(input: SendTemplateInput): Promise<Act
     parsed.data.channel,
     parsed.data.recipient_id,
     body,
-    parsed.data.ticket_id ?? null
+    parsed.data.job_id ?? null
   )
 
   if (!sent) {

@@ -11,7 +11,8 @@ import {
   type CustomerUpdateInput,
 } from '@/lib/validators'
 
-const WRITE_ROLES: UserRole[] = ['ADMIN', 'COORDINATOR']
+/** docs/01-schema.md §RLS: ADMIN+STORE_STAFF create and update customers; ADMIN deletes. */
+const WRITE_ROLES: UserRole[] = ['ADMIN', 'STORE_STAFF']
 
 export async function createCustomer(
   input: CustomerCreateInput
@@ -28,7 +29,7 @@ export async function createCustomer(
 
   const { data, error } = await supabase
     .from('customers')
-    .insert(parsed.data)
+    .insert({ ...parsed.data, created_by: userId })
     .select('id')
     .single()
   if (error || !data) return { success: false, error: 'Could not save the customer.' }
@@ -61,54 +62,17 @@ export async function updateCustomer(input: CustomerUpdateInput): Promise<Action
   const { error } = await supabase.from('customers').update(changes).eq('id', id)
   if (error) return { success: false, error: 'Could not update the customer.' }
 
+  // Log the same fields on both sides so the audit viewer shows real changes only.
+  const oldValues = Object.fromEntries(
+    Object.keys(changes).map((field) => [field, before[field as keyof typeof before]])
+  )
   await writeAuditLog({
     tableName: 'customers',
     recordId: id,
     action: 'UPDATE',
     changedBy: userId,
-    oldValues: before,
+    oldValues,
     newValues: changes,
-  })
-  return { success: true }
-}
-
-/**
- * Clear the intake "possible_duplicate" flag once a coordinator has looked.
- * docs/04-integrations.md §Duplicate Prevention: unsure matches are created
- * flagged and reviewed by hand; this is the review.
- */
-export async function resolveDuplicateCustomer(input: { id: string }): Promise<ActionResult> {
-  const parsed = customerIdSchema.safeParse(input)
-  if (!parsed.success) return { success: false, error: 'Invalid customer.' }
-
-  const auth = await requireSession()
-  if (!auth.ok) return { success: false, error: auth.error }
-  const { supabase, userId, profile } = auth.session
-  if (!hasRole(profile, WRITE_ROLES)) {
-    return { success: false, error: 'You do not have permission to do that.' }
-  }
-
-  const { id } = parsed.data
-  const { data: before } = await supabase
-    .from('customers')
-    .select('possible_duplicate')
-    .eq('id', id)
-    .single()
-  if (!before) return { success: false, error: 'Customer not found.' }
-
-  const { error } = await supabase
-    .from('customers')
-    .update({ possible_duplicate: false })
-    .eq('id', id)
-  if (error) return { success: false, error: 'Could not update the customer.' }
-
-  await writeAuditLog({
-    tableName: 'customers',
-    recordId: id,
-    action: 'UPDATE',
-    changedBy: userId,
-    oldValues: before,
-    newValues: { possible_duplicate: false },
   })
   return { success: true }
 }
@@ -120,8 +84,8 @@ export async function deleteCustomer(input: { id: string }): Promise<ActionResul
   const auth = await requireSession()
   if (!auth.ok) return { success: false, error: auth.error }
   const { supabase, userId, profile } = auth.session
-  if (!hasRole(profile, WRITE_ROLES)) {
-    return { success: false, error: 'You do not have permission to do that.' }
+  if (!hasRole(profile, ['ADMIN'])) {
+    return { success: false, error: 'Only an admin can delete a customer.' }
   }
 
   const { id } = parsed.data
@@ -129,7 +93,9 @@ export async function deleteCustomer(input: { id: string }): Promise<ActionResul
   if (!before) return { success: false, error: 'Customer not found.' }
 
   const { error } = await supabase.from('customers').delete().eq('id', id)
-  if (error) return { success: false, error: 'Could not delete the customer.' }
+  if (error) {
+    return { success: false, error: 'Could not delete the customer. Customers with jobs are kept.' }
+  }
 
   await writeAuditLog({
     tableName: 'customers',

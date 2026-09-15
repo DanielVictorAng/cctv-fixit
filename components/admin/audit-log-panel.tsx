@@ -26,7 +26,7 @@ function href(table: string, page: number): string {
   if (table) params.set('audit', table)
   if (page > 1) params.set('page', String(page))
   const query = params.toString()
-  return query ? '/admin?' + query : '/admin'
+  return query ? '/admin/audit?' + query : '/admin/audit'
 }
 
 function Chip({ label, active, to }: { label: string; active: boolean; to: string }) {

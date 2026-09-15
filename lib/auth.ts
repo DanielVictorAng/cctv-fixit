@@ -41,6 +41,9 @@ export async function requireSession(): Promise<
   if (!userId || !profile) {
     return { ok: false, error: 'You must be signed in.' }
   }
+  if (!profile.is_active) {
+    return { ok: false, error: 'This account has been deactivated.' }
+  }
   return { ok: true, session: { supabase, userId, profile } }
 }
 

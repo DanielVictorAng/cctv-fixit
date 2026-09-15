@@ -60,7 +60,7 @@ export async function sendMessage(
   channel: MessageChannel,
   recipientId: string,
   body: string,
-  ticketId?: string | null
+  jobId?: string | null
 ): Promise<boolean> {
   let lastError = 'unknown error'
 
@@ -79,7 +79,7 @@ export async function sendMessage(
       channel,
       recipient_id: recipientId,
       body,
-      ticket_id: ticketId ?? null,
+      job_id: jobId ?? null,
       attempts: BACKOFF_MS.length,
       last_error: lastError,
     })
