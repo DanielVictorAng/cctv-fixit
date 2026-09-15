@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { hasRole, requireSession, type UserRole } from '@/lib/auth'
 import { sendMessage } from '@/lib/messaging/send'
-import { renderTemplate } from '@/lib/messaging/templates'
+import { missingTemplateVars, renderTemplate } from '@/lib/messaging/templates'
 import type { ActionResult } from '@/lib/action-result'
 
 const STAFF_ROLES: UserRole[] = ['ADMIN', 'COORDINATOR']
@@ -28,6 +28,14 @@ export async function sendTemplateMessage(input: SendTemplateInput): Promise<Act
   if (!auth.ok) return { success: false, error: auth.error }
   if (!hasRole(auth.session.profile, STAFF_ROLES)) {
     return { success: false, error: 'You do not have permission to send messages.' }
+  }
+
+  // Refuse to send a half-filled template. renderTemplate() blanks unknown
+  // placeholders, so an unchecked send reaches the customer as "Quote for : ₱500".
+  const missing = missingTemplateVars(parsed.data.template, parsed.data.vars)
+  if (missing.length > 0) {
+    const fields = missing.map((name) => name.replace(/_/g, ' ')).join(', ')
+    return { success: false, error: `This message still needs: ${fields}.` }
   }
 
   const body = renderTemplate(parsed.data.template, parsed.data.vars)

@@ -4,7 +4,7 @@ import { NextResponse, after, type NextRequest } from 'next/server'
 import { claimInboundEvent, releaseInboundEvent } from '@/lib/messaging/inbound-events'
 import { intakeInboundMessage, type InboundMessage } from '@/lib/messaging/intake'
 import { sendMessage } from '@/lib/messaging/send'
-import { renderTemplate } from '@/lib/messaging/templates'
+import { greetingName, renderTemplate } from '@/lib/messaging/templates'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
         await sendMessage(
           'viber',
           message.senderId,
-          renderTemplate('ack', { name: result.customerName }),
+          renderTemplate('ack', { name: greetingName(result.customerName) }),
           result.ticketId
         )
       } catch (error) {
