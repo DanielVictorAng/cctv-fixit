@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse, after, type NextRequest } from 'next/server'
 
 import { intakeInboundMessage, type InboundMessage } from '@/lib/messaging/intake'
 import { sendMessage } from '@/lib/messaging/send'
@@ -7,6 +7,9 @@ import { renderTemplate } from '@/lib/messaging/templates'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+/** Stand-in issue text when the customer sends a photo with no caption. */
+const IMAGE_PLACEHOLDER = '[image]'
 
 /** Meta webhook verification (also usable by n8n). */
 export async function GET(request: NextRequest) {
@@ -41,8 +44,25 @@ function authorized(request: NextRequest, raw: string): boolean {
   return validSignature(raw, request.headers.get('x-hub-signature-256'))
 }
 
-function strings(value: unknown): string[] {
+function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+}
+
+/**
+ * Meta sends images as attachment objects whose payload URL is short-lived and
+ * signed. We keep the URL; downloading into Supabase Storage is a later concern.
+ */
+function attachmentUrls(message: Record<string, unknown>): string[] {
+  if (!Array.isArray(message.attachments)) return []
+  const urls: string[] = []
+  for (const item of message.attachments) {
+    if (typeof item !== 'object' || item === null) continue
+    const payload = (item as Record<string, unknown>).payload
+    if (typeof payload !== 'object' || payload === null) continue
+    const url = (payload as Record<string, unknown>).url
+    if (typeof url === 'string' && url.length > 0) urls.push(url)
+  }
+  return urls
 }
 
 /** Normalise either the n8n-sanitised shape or Meta's raw webhook shape. */
@@ -50,19 +70,24 @@ function normalize(payload: unknown): InboundMessage[] {
   if (typeof payload !== 'object' || payload === null) return []
   const record = payload as Record<string, unknown>
 
-  if (typeof record.sender_id === 'string' && typeof record.text === 'string') {
+  // Shape 1 — already sanitised by n8n.
+  if (typeof record.sender_id === 'string') {
+    const text = typeof record.text === 'string' ? record.text : ''
+    const attachments = stringArray(record.attachments)
+    if (!text && attachments.length === 0) return []
     return [
       {
         channel: 'messenger',
         senderId: record.sender_id,
-        text: record.text,
+        text: text || IMAGE_PLACEHOLDER,
         phoneNumber: typeof record.phone_number === 'string' ? record.phone_number : null,
         category: typeof record.category === 'string' ? record.category : null,
-        attachments: strings(record.attachments),
+        attachments,
       },
     ]
   }
 
+  // Shape 2 — Meta's raw envelope.
   const messages: InboundMessage[] = []
   const entries = Array.isArray(record.entry) ? record.entry : []
   for (const entry of entries) {
@@ -80,9 +105,22 @@ function normalize(payload: unknown): InboundMessage[] {
         typeof event.message === 'object' && event.message !== null
           ? (event.message as Record<string, unknown>)
           : null
-      if (sender && typeof sender.id === 'string' && message && typeof message.text === 'string') {
-        messages.push({ channel: 'messenger', senderId: sender.id, text: message.text })
-      }
+      if (!sender || typeof sender.id !== 'string' || !message) continue
+
+      // Echoes are our own outbound messages coming back. Ingesting them would
+      // make the bot open a ticket on itself and answer in a loop.
+      if (message.is_echo === true) continue
+
+      const text = typeof message.text === 'string' ? message.text : ''
+      const attachments = attachmentUrls(message)
+      if (!text && attachments.length === 0) continue
+
+      messages.push({
+        channel: 'messenger',
+        senderId: sender.id,
+        text: text || IMAGE_PLACEHOLDER,
+        attachments,
+      })
     }
   }
   return messages
@@ -102,15 +140,27 @@ export async function POST(request: NextRequest) {
   }
 
   const messages = normalize(payload)
-  for (const message of messages) {
-    const result = await intakeInboundMessage(message)
-    await sendMessage(
-      'messenger',
-      message.senderId,
-      renderTemplate('ack', { name: result.customerName }),
-      result.ticketId
-    )
-  }
+
+  // Answer Meta immediately and work afterwards. Meta re-delivers an event when
+  // our response is slow, and a re-delivery used to open a second ticket. The
+  // Graph API retry ladder alone can run 21s, so it must never gate the 200.
+  after(async () => {
+    for (const message of messages) {
+      try {
+        const result = await intakeInboundMessage(message)
+        await sendMessage(
+          'messenger',
+          message.senderId,
+          renderTemplate('ack', { name: result.customerName }),
+          result.ticketId
+        )
+      } catch (error) {
+        // Docs: never block the app when messaging is down. The coordinator can
+        // still create the ticket by hand.
+        console.error('[webhooks/messenger] intake failed', error)
+      }
+    }
+  })
 
   return NextResponse.json({ received: messages.length })
 }
