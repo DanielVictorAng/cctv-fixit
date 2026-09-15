@@ -1,7 +1,6 @@
-import { endOfDay, format, startOfDay } from 'date-fns'
-
 import { getSessionContext } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase-client'
+import { formatShopTime, shopDayRange } from '@/lib/time'
 import { EmptyState } from '@/components/ui/empty-state'
 import { JobCard, type JobSummary } from '@/components/tech/job-card'
 
@@ -12,8 +11,7 @@ export default async function TechPage() {
   const { userId } = await getSessionContext()
   if (!userId) return null
 
-  const start = startOfDay(new Date())
-  const end = endOfDay(new Date())
+  const { start, end } = shopDayRange()
 
   const [todayResult, activeResult] = await Promise.all([
     supabase
@@ -23,7 +21,7 @@ export default async function TechPage() {
       )
       .eq('assigned_tech_id', userId)
       .gte('scheduled_start', start.toISOString())
-      .lte('scheduled_start', end.toISOString())
+      .lt('scheduled_start', end.toISOString())
       .order('scheduled_start'),
     supabase
       .from('tickets')
@@ -44,7 +42,7 @@ export default async function TechPage() {
       zone: row.zone,
       customer_name: row.customers?.full_name ?? null,
       address: row.customers?.default_address ?? null,
-      scheduled_label: row.scheduled_start ? format(new Date(row.scheduled_start), 'HH:mm') : null,
+      scheduled_label: row.scheduled_start ? formatShopTime(row.scheduled_start, 'HH:mm') : null,
     })
   }
   const jobs = [...merged.values()]

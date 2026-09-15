@@ -1,5 +1,3 @@
-import { addMonths, startOfMonth, subMonths } from 'date-fns'
-
 import {
   countByStatus,
   openCount,
@@ -14,6 +12,7 @@ import {
 import type { ActionResult } from '@/lib/action-result'
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import type { DBClient } from '@/lib/supabase-client'
+import { shopMonthStart } from '@/lib/time'
 
 /**
  * Everything /admin needs, read through the ADMIN session client so RLS still
@@ -21,9 +20,9 @@ import type { DBClient } from '@/lib/supabase-client'
  */
 export async function getAnalytics(supabase: DBClient): Promise<ActionResult<Analytics>> {
   const now = new Date()
-  const thisStart = startOfMonth(now)
-  const nextStart = startOfMonth(addMonths(now, 1))
-  const lastStart = startOfMonth(subMonths(now, 1))
+  const thisStart = shopMonthStart(now)
+  const nextStart = shopMonthStart(now, 1)
+  const lastStart = shopMonthStart(now, -1)
   const lastIso = lastStart.toISOString()
   // One pass covers both months: a job completed this month may have been
   // created long before it.

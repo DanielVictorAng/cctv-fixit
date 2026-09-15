@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
 import { cancelTicket, confirmPayment, scheduleTicket } from '@/lib/actions/tickets'
+import { shopInputToIso } from '@/lib/time'
 import { paymentMethodSchema } from '@/lib/validators'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,8 +39,8 @@ export function ScheduleForm({ ticketId, onDone }: { ticketId: string; onDone: (
     try {
       const result = await scheduleTicket({
         ticket_id: ticketId,
-        scheduled_start: new Date(values.scheduled_start).toISOString(),
-        scheduled_end: values.scheduled_end ? new Date(values.scheduled_end).toISOString() : null,
+        scheduled_start: shopInputToIso(values.scheduled_start),
+        scheduled_end: values.scheduled_end ? shopInputToIso(values.scheduled_end) : null,
       })
       if (!result.success) {
         toast({ title: 'Could not schedule', description: result.error, variant: 'destructive' })
@@ -55,7 +56,7 @@ export function ScheduleForm({ ticketId, onDone }: { ticketId: string; onDone: (
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-4" noValidate>
       <div className="space-y-2">
-        <Label htmlFor="scheduled_start">Start</Label>
+        <Label htmlFor="scheduled_start">Start (Philippine time)</Label>
         <Input id="scheduled_start" type="datetime-local" {...register('scheduled_start')} />
         {errors.scheduled_start ? (
           <p className="text-sm text-red-600">{errors.scheduled_start.message}</p>

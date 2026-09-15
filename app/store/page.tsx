@@ -1,7 +1,6 @@
-import { endOfDay, format, startOfDay } from 'date-fns'
-
 import { LOW_STOCK_THRESHOLD } from '@/lib/constants'
 import { createServerClient } from '@/lib/supabase-client'
+import { formatShopTime, shopDayRange } from '@/lib/time'
 import { EmptyState } from '@/components/ui/empty-state'
 import { PickList, type PickListItem } from '@/components/store/pick-list'
 
@@ -9,8 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function StorePage() {
   const supabase = await createServerClient()
-  const start = startOfDay(new Date())
-  const end = endOfDay(new Date())
+  const { start, end } = shopDayRange()
 
   const [ticketsResult, materialsResult] = await Promise.all([
     supabase
@@ -18,7 +16,7 @@ export default async function StorePage() {
       .select('id,status,service_category,scheduled_start,customers(full_name)')
       .in('status', ['SCHEDULED', 'DISPATCHED'])
       .gte('scheduled_start', start.toISOString())
-      .lte('scheduled_start', end.toISOString())
+      .lt('scheduled_start', end.toISOString())
       .order('scheduled_start'),
     supabase.from('materials').select('id,name,stock_qty').order('name'),
   ])
@@ -80,9 +78,7 @@ export default async function StorePage() {
                 ticketId={ticket.id}
                 customerName={ticket.customers?.full_name ?? null}
                 scheduledLabel={
-                  ticket.scheduled_start
-                    ? format(new Date(ticket.scheduled_start), 'HH:mm')
-                    : null
+                  ticket.scheduled_start ? formatShopTime(ticket.scheduled_start, 'HH:mm') : null
                 }
                 items={items}
               />

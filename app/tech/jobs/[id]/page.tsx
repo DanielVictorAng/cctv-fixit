@@ -1,10 +1,10 @@
-import { format } from 'date-fns'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Package } from 'lucide-react'
 
 import { PHOTO_BUCKET } from '@/lib/constants'
 import { createAdminClient, createServerClient } from '@/lib/supabase-client'
+import { formatShopTime } from '@/lib/time'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DeepLinks } from '@/components/tech/deep-links'
 import { JobActions } from '@/components/tech/job-actions'
@@ -94,7 +94,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           {ticket.scheduled_start ? (
             <div>
               <dt className="text-zinc-500">Scheduled</dt>
-              <dd>{format(new Date(ticket.scheduled_start), 'PPpp')}</dd>
+              <dd>{formatShopTime(ticket.scheduled_start, 'PPpp')}</dd>
             </div>
           ) : null}
         </dl>
@@ -153,7 +153,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
                 <div className="flex justify-between">
                   <span className="font-medium">{order.status}</span>
                   <span className="text-xs text-zinc-500">
-                    {format(new Date(order.created_at), 'MMM d, HH:mm')}
+                    {formatShopTime(order.created_at, 'MMM d, HH:mm')}
                   </span>
                 </div>
                 <p className="mt-1 whitespace-pre-wrap">{order.new_description}</p>

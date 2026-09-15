@@ -1,6 +1,5 @@
-import { format } from 'date-fns'
-
 import { createServerClient } from '@/lib/supabase-client'
+import { formatShopTime } from '@/lib/time'
 import { EmptyState } from '@/components/ui/empty-state'
 import { KanbanBoard } from '@/components/coordinator/kanban-board'
 import { NewTicketDialog, type CustomerOption } from '@/components/coordinator/new-ticket-dialog'
@@ -36,7 +35,7 @@ export default async function CoordinatorPage() {
     service_category: t.service_category,
     zone: t.zone,
     customer_name: t.customers?.full_name ?? null,
-    scheduled_label: t.scheduled_start ? format(new Date(t.scheduled_start), 'MMM d, HH:mm') : null,
+    scheduled_label: t.scheduled_start ? formatShopTime(t.scheduled_start, 'MMM d, HH:mm') : null,
     final_total: Number(t.final_total),
   }))
 

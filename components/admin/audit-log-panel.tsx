@@ -1,7 +1,7 @@
-import { format } from 'date-fns'
 import Link from 'next/link'
 
 import { AUDIT_TABLES, type AuditChange } from '@/lib/audit-log'
+import { formatShopTime } from '@/lib/time'
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 
@@ -99,7 +99,7 @@ export function AuditLogPanel({
                   {entry.recordId.slice(0, 8)}
                 </span>
                 <span className="text-xs text-zinc-500">
-                  {entry.changedByName} · {format(new Date(entry.changedAt), 'MMM d, HH:mm')}
+                  {entry.changedByName} · {formatShopTime(entry.changedAt, 'MMM d, HH:mm')}
                 </span>
               </div>
 

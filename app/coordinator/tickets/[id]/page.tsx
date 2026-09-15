@@ -1,10 +1,10 @@
-import { format } from 'date-fns'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 
 import { getSessionContext } from '@/lib/auth'
 import { createServerClient } from '@/lib/supabase-client'
+import { formatShopTime } from '@/lib/time'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { TicketActions } from '@/components/coordinator/ticket-actions'
 import {
@@ -51,7 +51,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     additional_labour: Number(order.additional_labour),
     additional_materials: order.additional_materials,
     status: order.status,
-    created_label: format(new Date(order.created_at), 'MMM d, HH:mm'),
+    created_label: formatShopTime(order.created_at, 'MMM d, HH:mm'),
   }))
 
   return (
@@ -91,7 +91,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           {ticket.scheduled_start ? (
             <div className="sm:col-span-2">
               <dt className="text-zinc-500">Scheduled</dt>
-              <dd>{format(new Date(ticket.scheduled_start), 'PPP p')}</dd>
+              <dd>{formatShopTime(ticket.scheduled_start, 'PPP p')}</dd>
             </div>
           ) : null}
         </dl>
