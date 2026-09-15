@@ -47,6 +47,7 @@ UI Version: 1.0.0
 | ChangeOrderForm | @/components/tech/change-order-form.tsx | ticketId, materials, onDone | Tech job detail |
 | ChangeOrderReview | @/components/coordinator/change-order-review.tsx | orders, materials | Ticket detail |
 | ServicesPanel | @/components/admin/services-panel.tsx | services | /admin |
+| AuditLogPanel | @/components/admin/audit-log-panel.tsx | entries, activeTable, page, hasNext | /admin |
 
 New component? Add to this table immediately.
 
