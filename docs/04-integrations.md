@@ -1,11 +1,19 @@
 # 04-INTEGRATIONS
-Integrations Version: 1.0.0
+Integrations Version: 1.1.0
 
 ## Architecture
-Inbound: Meta/Viber → n8n → Next.js /api/webhooks/ → Supabase
+Inbound (preferred): Meta/Viber → n8n → Next.js /api/webhooks/ → Supabase
+Inbound (fallback):  Meta/Viber → Next.js /api/webhooks/ → Supabase
 Outbound: Next.js Server Actions → Meta/Viber APIs
 n8n: Inbound parsing, dedup, routing. Next.js: Logic, DB, outbound.
-Next.js NEVER receives raw webhooks directly. n8n sanitizes first.
+Webhook routes accept BOTH paths. A request carrying the x-n8n-secret header
+(an n8n forward) is trusted without a platform signature; otherwise the raw
+platform signature is verified (Meta X-Hub-Signature-256 / Viber
+X-Viber-Content-Signature). A raw payload is normalised into the same shape n8n
+sends, so dedup and intake behave identically either way.
+The fallback exists because the client's n8n instance sits behind a home
+router and has no public URL, so Meta/Viber may point straight at the app. If no
+n8n secret is configured, that path is not silently trusted — it fails closed.
 
 ## Messenger Webhook
 - Path: /api/webhooks/messenger
@@ -16,7 +24,7 @@ Next.js NEVER receives raw webhooks directly. n8n sanitizes first.
 
 ## Viber Webhook
 - Path: /api/webhooks/viber
-- Inbound POST: Parse sender.id, text
+- Inbound POST: Parse sender.id, text; media URL for picture/video/file messages
 - Outbound: POST chatapi.viber.com/pa/send_message
 - Security: Verify X-Viber-Content-Signature. Reject invalid.
 
@@ -32,6 +40,7 @@ dispatch: "Hi {name}! Tech {tech_name} arriving {time_window}. Salamat! 🙏"
 complete: "Hi {name}! Job done ✅ Total: ₱{amount}. GCash: {number}. Salamat po!"
 warranty: "Hi {name}! Follow-up — okay pa ba yung {service}? Message lang po if may issue. 😊"
 reminder: "Hi {name}! Reminder: appointment tomorrow {time}. See you po! 👍"
+ack: "Salamat {name}! Natanggap na po namin ang message niyo. We will get back to you shortly. 🙏"
 
 ## Failure Handling
 - API down: Retry 3x, backoff 1s/4s/16s.
