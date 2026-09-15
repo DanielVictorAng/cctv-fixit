@@ -48,7 +48,7 @@ export function ChangeOrderForm({
 }: {
   ticketId: string
   materials: ChangeOrderMaterial[]
-  onDone: () => void
+  onDone?: () => void
 }) {
   const router = useRouter()
   const [pending, setPending] = useState(false)
@@ -90,7 +90,7 @@ export function ChangeOrderForm({
       }
       toast({ title: 'Change order sent to the coordinator' })
       reset()
-      onDone()
+      onDone?.()
       router.refresh()
     } finally {
       setPending(false)

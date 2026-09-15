@@ -4,11 +4,16 @@ import type { Database } from '@/lib/types'
 
 type UserRole = Database['public']['Enums']['user_role']
 
-const ROLE_HOME: Record<UserRole, string> = {
-  ADMIN: '/admin',
-  COORDINATOR: '/coordinator',
-  TECHNICIAN: '/tech',
-  STORE_STAFF: '/store',
+/** Route areas each role may open; the first is its home (docs/03-ui-map.md §Routes). */
+const ROLE_AREAS: Record<UserRole, string[]> = {
+  ADMIN: ['/admin', '/coordinator'],
+  COORDINATOR: ['/coordinator'],
+  TECHNICIAN: ['/tech'],
+  STORE_STAFF: ['/store'],
+}
+
+function canOpen(areas: string[], pathname: string): boolean {
+  return areas.some((area) => pathname === area || pathname.startsWith(area + '/'))
 }
 
 export async function proxy(request: NextRequest) {
@@ -42,19 +47,21 @@ export async function proxy(request: NextRequest) {
     .single()
 
   const role = (profile?.role ?? null) as UserRole | null
-  const home = role ? ROLE_HOME[role] : null
+  const areas = role ? ROLE_AREAS[role] : null
 
   // Signed in but no profile/role (e.g. trigger not yet applied): force re-auth.
-  if (!home) {
+  if (!areas) {
     await supabase.auth.signOut()
     return redirect('/login')
   }
 
+  const home = areas[0]
+
   // Already on /login → send to their role home.
   if (pathname === '/login') return redirect(home)
 
-  // Allow their own area (and anything under it).
-  if (pathname === home || pathname.startsWith(home + '/')) return response
+  // Allow their own areas (and anything under them).
+  if (canOpen(areas, pathname)) return response
 
   // Everything else → their role home.
   return redirect(home)
@@ -62,6 +69,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|json)$).*)',
+    // sw.js and the manifest must never be redirected: browsers reject a
+    // redirected service worker script and fetch the manifest without cookies.
+    '/((?!api|_next/static|_next/image|favicon.ico|sw\\.js$|manifest\\.webmanifest$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|json)$).*)',
   ],
 }

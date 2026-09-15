@@ -169,7 +169,6 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           <ChangeOrderForm
             ticketId={ticket.id}
             materials={catalog.map((m) => ({ id: m.id, name: m.name, cost_price: Number(m.cost_price) }))}
-            onDone={() => {}}
           />
         </div>
       ) : null}

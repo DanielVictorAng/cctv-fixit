@@ -1,6 +1,8 @@
 // CCTV Fix-It service worker — app-shell cache + runtime caching.
 const CACHE = 'fixit-v1'
-const APP_SHELL = ['/', '/tech', '/manifest.webmanifest', '/icon.svg']
+// '/' is left out: it always redirects to a role home, and a cached redirect
+// cannot answer a navigation.
+const APP_SHELL = ['/tech', '/manifest.webmanifest', '/icon.svg']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

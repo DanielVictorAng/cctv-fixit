@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 import { delta, type Analytics } from '@/lib/analytics'
@@ -205,7 +206,15 @@ export default async function AdminPage({
           <h1 className="text-xl font-semibold">Admin</h1>
           <p className="text-sm text-zinc-500">Shop overview, this month against last.</p>
         </div>
-        <SignOutButton />
+        <div className="flex items-center gap-4">
+          <Link
+            href="/coordinator"
+            className="text-sm text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            Ticket board
+          </Link>
+          <SignOutButton />
+        </div>
       </div>
 
       {result.success && result.data ? (
