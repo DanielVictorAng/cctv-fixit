@@ -308,6 +308,7 @@ export type Database = {
         Row: {
           dispensed_at: string | null
           dispensed_by: string | null
+          dispensed_qty: number
           material_id: string
           quantity_used: number
           ticket_id: string
@@ -315,6 +316,7 @@ export type Database = {
         Insert: {
           dispensed_at?: string | null
           dispensed_by?: string | null
+          dispensed_qty?: number
           material_id: string
           quantity_used?: number
           ticket_id: string
@@ -322,6 +324,7 @@ export type Database = {
         Update: {
           dispensed_at?: string | null
           dispensed_by?: string | null
+          dispensed_qty?: number
           material_id?: string
           quantity_used?: number
           ticket_id?: string
@@ -458,6 +461,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      dispense_ticket_materials: {
+        Args: { p_ticket_id: string }
+        Returns: number
+      }
       has_role: {
         Args: { r: Database["public"]["Enums"]["user_role"] }
         Returns: boolean
