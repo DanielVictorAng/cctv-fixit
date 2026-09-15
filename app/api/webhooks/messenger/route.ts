@@ -7,6 +7,8 @@ import { renderTemplate } from '@/lib/messaging/templates'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+/** Vercel: the after() work must outlive the response. Hobby caps functions at 60s. */
+export const maxDuration = 60
 
 /** Stand-in issue text when the customer sends a photo with no caption. */
 const IMAGE_PLACEHOLDER = '[image]'

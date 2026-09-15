@@ -5,6 +5,8 @@ import { drainOutboundQueue } from '@/lib/messaging/outbound-queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+/** Vercel: the after() work must outlive the response. Hobby caps functions at 60s. */
+export const maxDuration = 60
 
 function secretsMatch(a: string, b: string): boolean {
   const left = Buffer.from(a)
