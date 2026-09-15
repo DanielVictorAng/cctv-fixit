@@ -33,13 +33,12 @@ Store staff land on /quotes; admins on /admin.
 | Textarea | @/components/ui/textarea.tsx | native textarea props | Forms |
 | Skeleton | @/components/ui/skeleton.tsx | className | Loading states |
 | EmptyState | @/components/ui/empty-state.tsx | title, message, action? | Empty screens |
-| PhotoUploader | @/components/ui/photo-uploader.tsx | jobId, kind, onUploaded | Tech job (Phase 2, 4) |
 | PwaManager | @/components/pwa/pwa-manager.tsx | — | Tech layout |
-| JobCard | @/components/tech/job-card.tsx | job | /tech (Phase 2) |
+| JobCard | @/components/tech/job-card.tsx | ticket | /tech (Phase 2) |
 | DeepLinks | @/components/tech/deep-links.tsx | address | Tech job (Phase 2) |
-| PickList | @/components/store/pick-list.tsx | jobId, items | /store (Phase 3) |
 | AuditLogPanel | @/components/admin/audit-log-panel.tsx | entries, activeTable, page, hasNext | /admin/audit |
-| CustomerFormDialog | @/components/customers/customer-form.tsx | open, customer | Quote builder |
+| CustomerFormDialog | @/components/customers/customer-form.tsx | open, onClose, customer | Quote builder |
+| StaffHeader | @/components/staff-header.tsx | role | Admin, quotes and store layouts |
 | QuoteList | @/components/quotes/quote-list.tsx | jobs | /quotes (Phase 1, planned) |
 | CustomerPicker | @/components/quotes/customer-picker.tsx | customers, onSelect | Quote builder (Phase 1, planned) |
 | TemplatePicker | @/components/quotes/template-picker.tsx | jobId, templates | Quote builder (Phase 1, planned) |
@@ -56,7 +55,8 @@ Store staff land on /quotes; admins on /admin.
 
 Removed in Phase 1 (repair-business screens): TicketCard, KanbanBoard, TicketActions, TransitionDialog,
 ScheduleForm/PaymentForm/CancelForm, NewTicketDialog, CustomersView, PriceCalculator, TechAssignment,
-DispatchCalendar, JobActions, ChangeOrderForm, ChangeOrderReview, ServicesPanel.
+DispatchCalendar, JobActions, ChangeOrderForm, ChangeOrderReview, ServicesPanel. PhotoUploader is
+rebuilt on job_photos in Phase 2 and PickList on job_lines in Phase 3.
 
 New component? Add to this table immediately.
 
