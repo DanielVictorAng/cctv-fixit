@@ -27,7 +27,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       .from('ticket_materials')
       .select('quantity_used, materials(id,name,sell_price)')
       .eq('ticket_id', id),
-    supabase.from('materials').select('id,name,cost_price').order('name'),
+    supabase.from('materials').select('id,name').order('name'),
     supabase
       .from('change_orders')
       .select('id,new_description,additional_labour,additional_materials,status,created_at')
@@ -168,7 +168,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           <h2 className="mb-3 text-sm font-semibold">Request a change order</h2>
           <ChangeOrderForm
             ticketId={ticket.id}
-            materials={catalog.map((m) => ({ id: m.id, name: m.name, cost_price: Number(m.cost_price) }))}
+            materials={catalog}
           />
         </div>
       ) : null}

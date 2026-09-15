@@ -15,7 +15,7 @@ import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/components/ui/toaster'
 
-export type ChangeOrderMaterial = { id: string; name: string; cost_price: number }
+export type ChangeOrderMaterial = { id: string; name: string }
 
 const amountField = (message: string) =>
   z
@@ -67,22 +67,17 @@ export function ChangeOrderForm({
   const { fields, append, remove } = useFieldArray({ control, name: 'materials' })
 
   async function submit(values: ChangeOrderValues) {
-    const lines = values.materials.map((row) => {
-      const material = materials.find((m) => m.id === row.material_id)
-      return {
-        material_id: row.material_id,
-        quantity: Number(row.quantity),
-        unit_cost: material?.cost_price ?? 0,
-      }
-    })
-
     setPending(true)
     try {
       const result = await requestChangeOrder({
         ticket_id: ticketId,
         new_description: values.new_description,
         additional_labour: Number(values.additional_labour),
-        additional_materials: lines,
+        // Ids and quantities only: the server prices materials from the catalog.
+        additional_materials: values.materials.map((row) => ({
+          material_id: row.material_id,
+          quantity: Number(row.quantity),
+        })),
       })
       if (!result.success) {
         toast({ title: 'Could not submit', description: result.error, variant: 'destructive' })

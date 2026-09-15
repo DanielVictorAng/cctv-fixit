@@ -2,6 +2,7 @@
 
 import { hasRole, requireSession, type RequiredSession, type UserRole } from '@/lib/auth'
 import { writeAuditLog } from '@/lib/audit'
+import { lineCosts, mergeMaterialLines, priceMaterialLines } from '@/lib/materials'
 import { calculateQuote } from '@/lib/pricing'
 import { createAdminClient } from '@/lib/supabase-client'
 import { assertTransition, type TicketStatus } from '@/lib/ticket-state'
@@ -199,33 +200,6 @@ export async function deleteTicket(input: { id: string }): Promise<ActionResult>
 
 // --- Quote materials -----------------------------------------------------
 
-/** One line per material: the same material picked twice becomes one line. */
-function mergeMaterialLines(lines: MaterialLine[]): MaterialLine[] {
-  const quantities = new Map<string, number>()
-  for (const line of lines) {
-    quantities.set(line.material_id, (quantities.get(line.material_id) ?? 0) + line.quantity)
-  }
-  return [...quantities].map(([material_id, quantity]) => ({ material_id, quantity }))
-}
-
-/**
- * Cost of each line from the materials catalog, never from the browser
- * (docs/00-rules.md §Architecture Rules 5). Null when a material no longer exists.
- */
-async function costMaterialLines(
-  supabase: RequiredSession['supabase'],
-  lines: MaterialLine[]
-): Promise<number[] | null> {
-  if (lines.length === 0) return []
-  const { data } = await supabase
-    .from('materials')
-    .select('id,cost_price')
-    .in('id', lines.map((line) => line.material_id))
-  const costs = new Map((data ?? []).map((material) => [material.id, Number(material.cost_price)]))
-  if (lines.some((line) => !costs.has(line.material_id))) return null
-  return lines.map((line) => (costs.get(line.material_id) ?? 0) * line.quantity)
-}
-
 /** Save the quoted materials — the store's pick-list is built from these rows. */
 async function attachMaterials(
   supabase: RequiredSession['supabase'],
@@ -270,14 +244,20 @@ export async function quoteTicket(input: QuoteTicketInput): Promise<ActionResult
   const check = await checkTransition(auth.session, ticket_id, 'QUOTED')
   if (!check.ok) return { success: false, error: check.error }
 
-  const lines = mergeMaterialLines(parsed.data.materials)
-  const costs = await costMaterialLines(auth.session.supabase, lines)
-  if (!costs) return { success: false, error: 'A material on this quote is no longer in the catalog.' }
+  const lines = await priceMaterialLines(
+    auth.session.supabase,
+    mergeMaterialLines(parsed.data.materials)
+  )
+  if (!lines) return { success: false, error: 'A material on this quote is no longer in the catalog.' }
   if (!(await attachMaterials(auth.session.supabase, ticket_id, lines))) {
     return { success: false, error: 'Could not save the materials on this quote.' }
   }
 
-  const pricing = calculateQuote({ baseLabour: base_labour, materialCosts: costs, surcharges })
+  const pricing = calculateQuote({
+    baseLabour: base_labour,
+    materialCosts: lineCosts(lines),
+    surcharges,
+  })
   const result = await applyTransition(auth.session, ticket_id, 'QUOTED', { ...pricing })
   if (!result.success) {
     await detachMaterials(ticket_id, lines)
