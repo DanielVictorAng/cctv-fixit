@@ -3,6 +3,7 @@
 import { hasRole, requireSession, type RequiredSession, type UserRole } from '@/lib/auth'
 import { writeAuditLog } from '@/lib/audit'
 import { calculateQuote } from '@/lib/pricing'
+import { createAdminClient } from '@/lib/supabase-client'
 import { assertTransition, type TicketStatus } from '@/lib/ticket-state'
 import type { ActionResult } from '@/lib/action-result'
 import type { Database } from '@/lib/types'
@@ -29,6 +30,7 @@ import {
 
 type TicketRow = Database['public']['Tables']['tickets']['Row']
 type TicketUpdate = Database['public']['Tables']['tickets']['Update']
+type MaterialLine = QuoteTicketInput['materials'][number]
 
 const WRITE_ROLES: UserRole[] = ['ADMIN', 'COORDINATOR']
 const TECH_TRANSITIONS: TicketStatus[] = ['IN_PROGRESS', 'COMPLETED']
@@ -43,9 +45,34 @@ async function loadTicket(
   return data ?? null
 }
 
+type TransitionCheck = { ok: true; before: TicketRow } | { ok: false; error: string }
+
+/** Load the ticket and confirm both the move and the caller (docs/02-logic.md §Ticket State Machine). */
+async function checkTransition(
+  session: RequiredSession,
+  ticketId: string,
+  to: TicketStatus
+): Promise<TransitionCheck> {
+  const before = await loadTicket(session.supabase, ticketId)
+  if (!before) return { ok: false, error: 'Ticket not found.' }
+
+  try {
+    assertTransition(before.status, to, session.profile.role)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Invalid transition.' }
+  }
+
+  if (TECH_TRANSITIONS.includes(to) && before.assigned_tech_id !== session.userId) {
+    return { ok: false, error: 'You are not assigned to this ticket.' }
+  }
+  return { ok: true, before }
+}
+
 /**
  * Shared state-machine transition: validates the move + role, applies the
  * patch, and writes an audit row (docs/02-logic.md §Ticket State Machine).
+ * The update only lands while the status is still the one that was validated,
+ * so two people moving the same ticket at once cannot both succeed.
  */
 async function applyTransition(
   session: RequiredSession,
@@ -54,33 +81,27 @@ async function applyTransition(
   changes: TicketUpdate | ((before: TicketRow) => TicketUpdate),
   auditExtra?: Record<string, unknown>
 ): Promise<ActionResult> {
-  const { supabase, userId, profile } = session
-
-  const before = await loadTicket(supabase, ticketId)
-  if (!before) return { success: false, error: 'Ticket not found.' }
-
-  try {
-    assertTransition(before.status, to, profile.role)
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : 'Invalid transition.' }
-  }
-
-  if (TECH_TRANSITIONS.includes(to) && before.assigned_tech_id !== userId) {
-    return { success: false, error: 'You are not assigned to this ticket.' }
-  }
+  const check = await checkTransition(session, ticketId, to)
+  if (!check.ok) return { success: false, error: check.error }
+  const { before } = check
 
   const patch = typeof changes === 'function' ? changes(before) : changes
-  const { error } = await supabase
+  const { data: updated, error } = await session.supabase
     .from('tickets')
     .update({ ...patch, status: to })
     .eq('id', ticketId)
+    .eq('status', before.status)
+    .select('id')
   if (error) return { success: false, error: 'Could not update the ticket.' }
+  if (!updated || updated.length === 0) {
+    return { success: false, error: 'Someone else just changed this ticket. Refresh and try again.' }
+  }
 
   await writeAuditLog({
     tableName: 'tickets',
     recordId: ticketId,
     action: 'UPDATE',
-    changedBy: userId,
+    changedBy: session.userId,
     oldValues: before,
     newValues: { ...patch, status: to, ...auditExtra },
   })
@@ -176,24 +197,103 @@ export async function deleteTicket(input: { id: string }): Promise<ActionResult>
   return { success: true }
 }
 
+// --- Quote materials -----------------------------------------------------
+
+/** One line per material: the same material picked twice becomes one line. */
+function mergeMaterialLines(lines: MaterialLine[]): MaterialLine[] {
+  const quantities = new Map<string, number>()
+  for (const line of lines) {
+    quantities.set(line.material_id, (quantities.get(line.material_id) ?? 0) + line.quantity)
+  }
+  return [...quantities].map(([material_id, quantity]) => ({ material_id, quantity }))
+}
+
+/**
+ * Cost of each line from the materials catalog, never from the browser
+ * (docs/00-rules.md §Architecture Rules 5). Null when a material no longer exists.
+ */
+async function costMaterialLines(
+  supabase: RequiredSession['supabase'],
+  lines: MaterialLine[]
+): Promise<number[] | null> {
+  if (lines.length === 0) return []
+  const { data } = await supabase
+    .from('materials')
+    .select('id,cost_price')
+    .in('id', lines.map((line) => line.material_id))
+  const costs = new Map((data ?? []).map((material) => [material.id, Number(material.cost_price)]))
+  if (lines.some((line) => !costs.has(line.material_id))) return null
+  return lines.map((line) => (costs.get(line.material_id) ?? 0) * line.quantity)
+}
+
+/** Save the quoted materials — the store's pick-list is built from these rows. */
+async function attachMaterials(
+  supabase: RequiredSession['supabase'],
+  ticketId: string,
+  lines: MaterialLine[]
+): Promise<boolean> {
+  if (lines.length === 0) return true
+  const { error } = await supabase.from('ticket_materials').insert(
+    lines.map((line) => ({
+      ticket_id: ticketId,
+      material_id: line.material_id,
+      quantity_used: line.quantity,
+    }))
+  )
+  return !error
+}
+
+/**
+ * Undo attachMaterials when the transition itself fails. Coordinators have no
+ * DELETE policy on ticket_materials, so this one clean-up uses the service role.
+ */
+async function detachMaterials(ticketId: string, lines: MaterialLine[]): Promise<void> {
+  if (lines.length === 0) return
+  const admin = createAdminClient()
+  await admin
+    .from('ticket_materials')
+    .delete()
+    .eq('ticket_id', ticketId)
+    .in('material_id', lines.map((line) => line.material_id))
+}
+
 // --- State machine transitions -----------------------------------------
 
 export async function quoteTicket(input: QuoteTicketInput): Promise<ActionResult> {
   const parsed = quoteTicketSchema.safeParse(input)
   if (!parsed.success) return { success: false, error: 'Please check the quote.' }
-  if (parsed.data.base_labour <= 0) {
-    return { success: false, error: 'Quoted labour must be greater than zero.' }
-  }
+  const { ticket_id, base_labour, surcharges } = parsed.data
+  if (base_labour <= 0) return { success: false, error: 'Quoted labour must be greater than zero.' }
 
   const auth = await requireSession()
   if (!auth.ok) return { success: false, error: auth.error }
+  const check = await checkTransition(auth.session, ticket_id, 'QUOTED')
+  if (!check.ok) return { success: false, error: check.error }
 
-  const pricing = calculateQuote({
-    baseLabour: parsed.data.base_labour,
-    materialCosts: parsed.data.material_costs,
-    surcharges: parsed.data.surcharges,
-  })
-  return applyTransition(auth.session, parsed.data.ticket_id, 'QUOTED', { ...pricing })
+  const lines = mergeMaterialLines(parsed.data.materials)
+  const costs = await costMaterialLines(auth.session.supabase, lines)
+  if (!costs) return { success: false, error: 'A material on this quote is no longer in the catalog.' }
+  if (!(await attachMaterials(auth.session.supabase, ticket_id, lines))) {
+    return { success: false, error: 'Could not save the materials on this quote.' }
+  }
+
+  const pricing = calculateQuote({ baseLabour: base_labour, materialCosts: costs, surcharges })
+  const result = await applyTransition(auth.session, ticket_id, 'QUOTED', { ...pricing })
+  if (!result.success) {
+    await detachMaterials(ticket_id, lines)
+    return result
+  }
+
+  if (lines.length > 0) {
+    await writeAuditLog({
+      tableName: 'ticket_materials',
+      recordId: ticket_id,
+      action: 'INSERT',
+      changedBy: auth.session.userId,
+      newValues: { materials: lines },
+    })
+  }
+  return result
 }
 
 export async function scheduleTicket(input: ScheduleTicketInput): Promise<ActionResult> {

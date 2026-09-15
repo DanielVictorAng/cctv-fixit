@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  quoteTicketSchema,
   serviceCreateSchema,
   serviceIdSchema,
   serviceUpdateSchema,
@@ -60,4 +61,32 @@ test('serviceUpdateSchema requires an id, serviceIdSchema wants only the id', ()
   assert.equal(serviceUpdateSchema.safeParse({ ...VALID, id: 'nope' }).success, false)
   assert.deepEqual(serviceIdSchema.parse({ id }), { id })
   assert.equal(serviceIdSchema.safeParse({ id: 'nope' }).success, false)
+})
+
+const TICKET_ID = '22222222-2222-4222-8222-222222222222'
+const MATERIAL_ID = '33333333-3333-4333-8333-333333333333'
+
+test('quoteTicketSchema takes material ids and quantities, never prices', () => {
+  const parsed = quoteTicketSchema.parse({
+    ticket_id: TICKET_ID,
+    base_labour: 400,
+    materials: [{ material_id: MATERIAL_ID, quantity: 2, cost_price: 1 }],
+  })
+  assert.deepEqual(parsed.materials, [{ material_id: MATERIAL_ID, quantity: 2 }])
+  assert.deepEqual(parsed.surcharges, [])
+})
+
+test('quoteTicketSchema allows a labour-only quote', () => {
+  const parsed = quoteTicketSchema.parse({ ticket_id: TICKET_ID, base_labour: 400 })
+  assert.deepEqual(parsed.materials, [])
+})
+
+test('quoteTicketSchema wants whole, positive quantities of real material ids', () => {
+  const quote = (line: unknown) =>
+    quoteTicketSchema.safeParse({ ticket_id: TICKET_ID, base_labour: 400, materials: [line] })
+      .success
+  assert.equal(quote({ material_id: MATERIAL_ID, quantity: 1 }), true)
+  assert.equal(quote({ material_id: MATERIAL_ID, quantity: 0 }), false)
+  assert.equal(quote({ material_id: MATERIAL_ID, quantity: 1.5 }), false)
+  assert.equal(quote({ material_id: 'nope', quantity: 1 }), false)
 })

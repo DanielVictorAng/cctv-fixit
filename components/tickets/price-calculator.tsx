@@ -16,9 +16,10 @@ import { Select } from '@/components/ui/select'
 export type ServiceOption = { id: string; name: string; base_labour_price: number }
 export type MaterialOption = { id: string; name: string; cost_price: number }
 
+/** Prices are not sent: the server looks each material up in the catalog. */
 export type QuoteInput = {
   base_labour: number
-  material_costs: number[]
+  materials: { material_id: string; quantity: number }[]
   surcharges: SurchargeType[]
 }
 
@@ -26,7 +27,7 @@ const amountField = z
   .string()
   .trim()
   .min(1, 'Required')
-  .refine((v) => !Number.isNaN(Number(v)) && Number(v) >= 0, 'Enter a valid amount')
+  .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, 'Enter an amount above ₱0')
 
 const quoteFormSchema = z.object({
   service_id: z.string(),
@@ -84,15 +85,14 @@ export function PriceCalculator({
   }, [watched, materials])
 
   async function submit(values: QuoteFormValues) {
-    const costs = values.materials.map((row) => {
-      const material = materials.find((m) => m.id === row.material_id)
-      return material ? material.cost_price * Number(row.quantity) : 0
-    })
     setPending(true)
     try {
       await onSubmit({
         base_labour: Number(values.base_labour),
-        material_costs: costs,
+        materials: values.materials.map((row) => ({
+          material_id: row.material_id,
+          quantity: Number(row.quantity),
+        })),
         surcharges: values.surcharges,
       })
     } finally {

@@ -80,10 +80,17 @@ export const ticketRefSchema = z.object({ ticket_id: z.uuid() })
 // State-machine transition inputs
 // ---------------------------------------------------------------------------
 
+/** A catalog material on a quote. Its price is looked up server-side, never sent. */
+export const quoteMaterialLineSchema = z.object({
+  material_id: z.uuid(),
+  quantity: z.number().int().positive().max(1000),
+})
+
 export const quoteTicketSchema = z.object({
   ticket_id: z.uuid(),
+  // Coordinators may override the service's base labour price.
   base_labour: z.number().nonnegative(),
-  material_costs: z.array(z.number().nonnegative()).default([]),
+  materials: z.array(quoteMaterialLineSchema).max(50).default([]),
   surcharges: z.array(surchargeSchema).default([]),
 })
 export type QuoteTicketInput = z.infer<typeof quoteTicketSchema>
