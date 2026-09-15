@@ -2,6 +2,7 @@
 
 import { hasRole, requireSession, type RequiredSession, type UserRole } from '@/lib/auth'
 import { writeAuditLog } from '@/lib/audit'
+import { isJobPhotoPath } from '@/lib/job-photos'
 import { lineCosts, mergeMaterialLines, priceMaterialLines } from '@/lib/materials'
 import { calculateQuote } from '@/lib/pricing'
 import { createAdminClient } from '@/lib/supabase-client'
@@ -313,15 +314,22 @@ export async function startTicket(input: { ticket_id: string }): Promise<ActionR
 
 export async function completeTicket(input: CompleteTicketInput): Promise<ActionResult> {
   const parsed = completeTicketSchema.safeParse(input)
-  if (!parsed.success) {
-    return { success: false, error: 'At least one photo is required to complete a job.' }
-  }
+  if (!parsed.success) return { success: false, error: 'Invalid ticket.' }
 
   const auth = await requireSession()
   if (!auth.ok) return { success: false, error: auth.error }
+  const { ticket_id } = parsed.data
 
-  return applyTransition(auth.session, parsed.data.ticket_id, 'COMPLETED', {
-    photo_urls: parsed.data.photo_urls,
+  const check = await checkTransition(auth.session, ticket_id, 'COMPLETED')
+  if (!check.ok) return { success: false, error: check.error }
+
+  // docs/02-logic.md: a photo of the work is required. Labour-only jobs may
+  // complete without materials (owner decision).
+  if (!check.before.photo_urls.some((path) => isJobPhotoPath(ticket_id, path))) {
+    return { success: false, error: 'Add at least one photo of the finished job first.' }
+  }
+
+  return applyTransition(auth.session, ticket_id, 'COMPLETED', {
     completed_at: new Date().toISOString(),
   })
 }

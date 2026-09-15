@@ -108,9 +108,9 @@ export const dispatchTicketSchema = z.object({
 })
 export type DispatchTicketInput = z.infer<typeof dispatchTicketSchema>
 
+// Photos are read from the ticket, never taken from the request.
 export const completeTicketSchema = z.object({
   ticket_id: z.uuid(),
-  photo_urls: z.array(z.string()).min(1, 'At least one photo is required'),
 })
 export type CompleteTicketInput = z.infer<typeof completeTicketSchema>
 
