@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { NextResponse, after, type NextRequest } from 'next/server'
 
+import { claimInboundEvent, releaseInboundEvent } from '@/lib/messaging/inbound-events'
 import { intakeInboundMessage, type InboundMessage } from '@/lib/messaging/intake'
 import { sendMessage } from '@/lib/messaging/send'
 import { renderTemplate } from '@/lib/messaging/templates'
@@ -85,6 +86,7 @@ function normalize(payload: unknown): InboundMessage[] {
         phoneNumber: typeof record.phone_number === 'string' ? record.phone_number : null,
         senderName: typeof record.sender_name === 'string' ? record.sender_name : null,
         category: typeof record.category === 'string' ? record.category : null,
+        messageId: typeof record.message_id === 'string' ? record.message_id : null,
         attachments,
       },
     ]
@@ -122,6 +124,7 @@ function normalize(payload: unknown): InboundMessage[] {
         channel: 'messenger',
         senderId: sender.id,
         text: text || IMAGE_PLACEHOLDER,
+        messageId: typeof message.mid === 'string' ? message.mid : null,
         attachments,
       })
     }
@@ -149,6 +152,12 @@ export async function POST(request: NextRequest) {
   // Graph API retry ladder alone can run 21s, so it must never gate the 200.
   after(async () => {
     for (const message of messages) {
+      // A re-delivered event must not open a second ticket or send a second
+      // auto-reply (docs/01-schema.md §inbound_events).
+      if (message.messageId && !(await claimInboundEvent('messenger', message.messageId))) {
+        continue
+      }
+
       try {
         const result = await intakeInboundMessage(message)
         await sendMessage(
@@ -158,6 +167,8 @@ export async function POST(request: NextRequest) {
           result.ticketId
         )
       } catch (error) {
+        // Give the claim back so the platform's retry can still be handled.
+        if (message.messageId) await releaseInboundEvent('messenger', message.messageId)
         // Docs: never block the app when messaging is down. The coordinator can
         // still create the ticket by hand.
         console.error('[webhooks/messenger] intake failed', error)

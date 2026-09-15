@@ -10,6 +10,8 @@ export type InboundMessage = {
   phoneNumber?: string | null
   /** Platform display name. Viber sends one; Messenger's webhook does not. */
   senderName?: string | null
+  /** Meta mid / Viber message_token. Idempotency key; absent on plain n8n forwards. */
+  messageId?: string | null
   category?: string | null
   attachments?: string[]
 }

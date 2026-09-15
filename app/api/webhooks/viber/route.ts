@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { NextResponse, after, type NextRequest } from 'next/server'
 
+import { claimInboundEvent, releaseInboundEvent } from '@/lib/messaging/inbound-events'
 import { intakeInboundMessage, type InboundMessage } from '@/lib/messaging/intake'
 import { sendMessage } from '@/lib/messaging/send'
 import { renderTemplate } from '@/lib/messaging/templates'
@@ -51,6 +52,7 @@ function normalize(payload: unknown): InboundMessage[] {
         phoneNumber: typeof record.phone_number === 'string' ? record.phone_number : null,
         senderName: typeof record.sender_name === 'string' ? record.sender_name : null,
         category: typeof record.category === 'string' ? record.category : null,
+        messageId: typeof record.message_id === 'string' ? record.message_id : null,
         attachments,
       },
     ]
@@ -86,6 +88,10 @@ function normalize(payload: unknown): InboundMessage[] {
       text: text || `[${type}]`,
       // Viber is the only platform that tells us who the customer is.
       senderName: typeof sender.name === 'string' ? sender.name : null,
+      messageId:
+        record.message_token === undefined || record.message_token === null
+          ? null
+          : String(record.message_token),
       attachments: media ? [media] : [],
     },
   ]
@@ -111,6 +117,12 @@ export async function POST(request: NextRequest) {
   // outbound send gate the 200.
   after(async () => {
     for (const message of messages) {
+      // A re-delivered event must not open a second ticket or send a second
+      // auto-reply (docs/01-schema.md §inbound_events).
+      if (message.messageId && !(await claimInboundEvent('viber', message.messageId))) {
+        continue
+      }
+
       try {
         const result = await intakeInboundMessage(message)
         await sendMessage(
@@ -120,6 +132,8 @@ export async function POST(request: NextRequest) {
           result.ticketId
         )
       } catch (error) {
+        // Give the claim back so the platform's retry can still be handled.
+        if (message.messageId) await releaseInboundEvent('viber', message.messageId)
         // Docs: never block the app when messaging is down. The coordinator can
         // still create the ticket by hand.
         console.error('[webhooks/viber] intake failed', error)

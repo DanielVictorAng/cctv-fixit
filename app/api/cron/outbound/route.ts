@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { pruneInboundEvents } from '@/lib/messaging/inbound-events'
 import { drainOutboundQueue } from '@/lib/messaging/outbound-queue'
 
 export const runtime = 'nodejs'
@@ -40,7 +41,17 @@ export async function GET(request: NextRequest) {
 
   try {
     const summary = await drainOutboundQueue()
-    return NextResponse.json(summary)
+
+    // Housekeeping, and deliberately non-fatal: an unapplied migration 007 must
+    // not stop the outbound queue from draining.
+    let pruned: number | null = null
+    try {
+      pruned = await pruneInboundEvents()
+    } catch (error) {
+      console.error('[cron/outbound] inbound event prune failed', error)
+    }
+
+    return NextResponse.json({ ...summary, pruned })
   } catch (error) {
     console.error('[cron/outbound] drain failed', error)
     return NextResponse.json({ error: 'drain failed' }, { status: 500 })

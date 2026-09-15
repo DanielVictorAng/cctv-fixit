@@ -11,3 +11,9 @@ export const OUTBOUND_RETRY_MS = 15 * 60 * 1000
 export const OUTBOUND_MAX_ATTEMPTS = 10
 /** Rows handled per drain run. */
 export const OUTBOUND_BATCH_SIZE = 25
+
+/**
+ * How long inbound webhook events are kept for idempotency (docs/01-schema.md).
+ * Longer than the 24h duplicate window, so nothing can be replayed as new.
+ */
+export const INBOUND_EVENT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
