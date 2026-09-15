@@ -118,3 +118,31 @@ export const cancelTicketSchema = z.object({
   reason: z.string().trim().min(1).max(500),
 })
 export type CancelTicketInput = z.infer<typeof cancelTicketSchema>
+
+// ---------------------------------------------------------------------------
+// Services catalog (admin pricing config)
+// ---------------------------------------------------------------------------
+
+/** Mirrors the categories listed on docs/01-schema.md §services. */
+export const serviceCategorySchema = z.enum([
+  'Plumbing',
+  'Electrical',
+  'Roofing',
+  'Carpentry',
+  'Painting',
+  'General',
+])
+
+export const serviceCreateSchema = z.object({
+  category: serviceCategorySchema,
+  name: z.string().trim().min(1, 'Name is required').max(120, 'Keep the name under 120 characters'),
+  // numeric(10,2): 0 is legal (a free inspection), negative never is.
+  base_labour_price: z.coerce.number().min(0, 'Price cannot be negative').max(999999.99),
+  est_duration_min: z.coerce.number().int().min(15).max(1440),
+})
+export type ServiceCreateInput = z.infer<typeof serviceCreateSchema>
+
+export const serviceUpdateSchema = serviceCreateSchema.extend({ id: z.uuid() })
+export type ServiceUpdateInput = z.infer<typeof serviceUpdateSchema>
+
+export const serviceIdSchema = z.object({ id: z.uuid() })

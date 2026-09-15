@@ -4,6 +4,7 @@ import { delta, type Analytics } from '@/lib/analytics'
 import { getAnalytics } from '@/lib/analytics-queries'
 import { createServerClient } from '@/lib/supabase-client'
 import { EmptyState } from '@/components/ui/empty-state'
+import { ServicesPanel, type ServiceRow } from '@/components/admin/services-panel'
 import { SignOutButton } from '@/components/sign-out-button'
 
 export const dynamic = 'force-dynamic'
@@ -135,7 +136,22 @@ function Overview({ data }: { data: Analytics }) {
 
 export default async function AdminPage() {
   const supabase = await createServerClient()
-  const result = await getAnalytics(supabase)
+  const [result, servicesResult] = await Promise.all([
+    getAnalytics(supabase),
+    supabase
+      .from('services')
+      .select('id,category,name,base_labour_price,est_duration_min')
+      .order('category')
+      .order('name'),
+  ])
+
+  const services: ServiceRow[] = (servicesResult.data ?? []).map((service) => ({
+    id: service.id,
+    category: service.category,
+    name: service.name,
+    base_labour_price: Number(service.base_labour_price),
+    est_duration_min: service.est_duration_min,
+  }))
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6">
@@ -153,6 +169,14 @@ export default async function AdminPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
           {result.error ?? 'Could not load the analytics right now.'}
         </div>
+      )}
+
+      {servicesResult.error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+          Could not load the services right now. Try again shortly.
+        </div>
+      ) : (
+        <ServicesPanel services={services} />
       )}
     </main>
   )
