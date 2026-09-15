@@ -1,0 +1,51 @@
+# n8n on a UGREEN NAS (UGOS Pro) — Phase 6.1
+#
+# Deploy either from the NAS's Docker app  (App Center -> Docker -> Project ->
+# Create, paste this file)  or over SSH:
+#     cd /volume1/docker/n8n
+#     docker compose -f docker-compose.nas.yml up -d
+#
+# If you paste this into the Docker app and it has no .env field, replace every
+# ${...} placeholder below with a literal value.
+#
+# FIRST-RUN CHECKLIST
+#   1. Create the shared folder, e.g. "docker", then a subfolder "n8n".
+#      Real path is usually /volume1/docker/n8n (confirm with: ls /volume*).
+#   2. The container runs as the "node" user, UID/GID 1000. Give it the folder:
+#          sudo chown -R 1000:1000 /volume1/docker/n8n
+#   3. Set NEXT_APP_URL to a URL the NAS can reach (see env.example).
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      TZ: Asia/Manila
+      GENERIC_TIMEZONE: Asia/Manila
+      N8N_PORT: 5678
+      N8N_LISTEN_ADDRESS: 0.0.0.0
+      # Plain HTTP on the LAN: keep the secure-cookie flag off, or the editor
+      # will refuse to log you in on http://.
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      # Trust X-Forwarded-* from a tunnel / reverse proxy (Cloudflare Tunnel, NPM).
+      N8N_PROXY_HOPS: "1"
+      # Back up the bind mount — it holds the credential encryption key.
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      # Public identity. Leave as-is for LAN use; set these before Meta/Viber
+      # can call your webhooks (6.2 / 6.3).
+      N8N_HOST: ${N8N_HOST:-localhost}
+      # Uncomment once a tunnel / reverse proxy fronts n8n, so generated webhook
+      # URLs are public instead of derived from whatever host you browsed:
+      # WEBHOOK_URL: ${WEBHOOK_URL}
+      # Wiring to the Next.js app (must match the app's .env.local).
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET}
+      NEXT_APP_URL: ${NEXT_APP_URL}
+      # Optional: pin the 64-char credential key instead of auto-generating it.
+      # N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+
+    volumes:
+      # Change /volume1 if your data volume is different (ls /volume*).
+      - /volume1/docker/n8n:/home/node/.n8n
